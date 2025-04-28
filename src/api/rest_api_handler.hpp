@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core/network_manager.hpp"
+// #include "../core/network_manager.hpp"
 #include "../transfer/transfer_manager.hpp"
 #include "../util/config.hpp"
 #include "../util/logger.hpp"
@@ -10,6 +10,9 @@
 #include <string>
 
 namespace http = boost::beast::http;
+
+class NetworkManager;
+class TransferManager;
 
 class RestApiHandler {
 public:

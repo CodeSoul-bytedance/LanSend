@@ -11,9 +11,6 @@ ArgumentParser::ArgumentParser(int argc, char* argv[])
 CliOptions ArgumentParser::parse() {
     CliOptions options;
 
-    // 跳过程序名
-    int i = 1;
-
     // 解析选项
     while (i < argc_) {
         std::string arg = argv_[i];

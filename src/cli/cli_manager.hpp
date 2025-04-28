@@ -1,12 +1,24 @@
 #pragma once
 
 #include "../core/network_manager.hpp"
-#include "../util/logger/logger.hpp"
+#include "../util/logger.hpp"
 #include "progress_display.hpp"
 #include "terminal.hpp"
 #include <memory>
 #include <string>
 #include <vector>
+
+// --- 前向声明 (如果需要) ---
+// namespace DiscoveryManager { struct DeviceInfo; }
+// namespace TransferManager { struct TransferState; }
+// namespace TransferManager { struct TransferProgress; }
+// namespace TransferManager { struct TransferResult; }
+
+namespace lansend {
+namespace api {
+class HttpServer;
+}
+} // namespace lansend
 
 class CliManager {
 public:
@@ -34,13 +46,13 @@ private:
     std::vector<std::string> parse_command(const std::string& command);
     void execute_command(const std::vector<std::string>& args);
 
-    // 输出格式化
-    void print_device_list(const std::vector<DeviceInfo>& devices);
-    void print_transfer_list(const std::vector<TransferState>& transfers);
+    // 输出格式化 (使用明确的作用域解析 ::)
+    void print_device_list(const std::vector<DiscoveryManager::DeviceInfo>& devices);
+    void print_transfer_list(const std::vector<TransferManager::TransferState>& transfers);
     void print_help();
 
-    // 事件处理
-    void on_device_found(const DeviceInfo& device);
-    void on_transfer_progress(const TransferProgress& progress);
-    void on_transfer_complete(const TransferResult& result);
+    // 事件处理 (使用明确的作用域解析 ::)
+    void on_device_found(const DiscoveryManager::DeviceInfo& device);
+    void on_transfer_progress(const TransferManager::TransferProgress& progress);
+    void on_transfer_complete(const TransferManager::TransferResult& result);
 };

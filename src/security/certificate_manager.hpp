@@ -2,9 +2,14 @@
 
 #include "../util/config.hpp"
 #include "../util/logger.hpp"
+#include <boost/asio/ssl/context.hpp>
 #include <filesystem>
 #include <memory>
 #include <string>
+
+namespace boost::asio::ssl {
+class context;
+}
 
 class CertificateManager {
 public:

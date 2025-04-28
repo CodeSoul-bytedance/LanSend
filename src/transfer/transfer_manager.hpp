@@ -45,7 +45,7 @@ public:
     ~TransferManager();
 
     // 传输控制
-    boost::asio::awaitable<TransferResult> start_transfer(const DeviceInfo& target,
+    boost::asio::awaitable<TransferResult> start_transfer(const DiscoveryManager::DeviceInfo& target,
                                                           const std::filesystem::path& filepath);
     void cancel_transfer(uint64_t transfer_id);
 
