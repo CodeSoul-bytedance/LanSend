@@ -4,9 +4,10 @@ project(lansend LANGUAGES CXX)
 file(GLOB_RECURSE CXX_SOURCE
     src/*.cpp
     src/*.h
+    src/*.hpp
 )
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
