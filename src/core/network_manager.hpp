@@ -8,6 +8,7 @@
 #include "../util/config.hpp"
 #include "../util/logger.hpp"
 #include <boost/asio.hpp>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>

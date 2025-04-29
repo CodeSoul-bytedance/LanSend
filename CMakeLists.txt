@@ -24,6 +24,10 @@ find_package(nlohmann_json REQUIRED)
 
 add_executable(lansend ${CXX_SOURCE})
 
+if(WIN32)
+  target_compile_definitions(lansend PRIVATE _WIN32_WINNT=0x0A00)
+endif()
+
 target_include_directories(lansend
     PRIVATE
       ${CMAKE_SOURCE_DIR}/src

@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/beast/http.hpp>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>

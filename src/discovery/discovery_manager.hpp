@@ -4,6 +4,7 @@
 #include "../util/logger.hpp"
 #include <boost/asio.hpp>
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <string>

@@ -8,12 +8,6 @@
 #include <string>
 #include <vector>
 
-// --- 前向声明 (如果需要) ---
-// namespace DiscoveryManager { struct DeviceInfo; }
-// namespace TransferManager { struct TransferState; }
-// namespace TransferManager { struct TransferProgress; }
-// namespace TransferManager { struct TransferResult; }
-
 namespace lansend {
 namespace api {
 class HttpServer;
