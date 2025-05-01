@@ -30,7 +30,7 @@ class HttpServer;
 
 class NetworkManager {
 public:
-    NetworkManager(boost::asio::io_context& ioc);
+    NetworkManager(boost::asio::io_context& ioc, Config& config);
     ~NetworkManager();
 
     // 启动服务
