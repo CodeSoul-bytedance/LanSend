@@ -1,0 +1,110 @@
+name: Build
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - ".github/workflows/build.yml"
+      - "CMakeLists.txt"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+  push:
+    paths: 
+      - "src/**"
+      - ".github/workflows/build.yml"
+      - "CMakeLists.txt"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, win-x64, macos-arm64]
+        include:
+        - rid: linux-x64
+          rust_target: x86_64-unknown-linux-gnu
+          vcpkg_host_triplet: 'x64-linux-release'
+          vcpkg_target_triplet: 'x64-linux-release'
+          os: ubuntu-latest
+          qt_arch: gcc_64
+        - rid: win-x64
+          msvc_arch: x64
+          rust_target: x86_64-pc-windows-msvc
+          vcpkg_host_triplet: 'x64-windows-static-md-release'
+          vcpkg_target_triplet: 'x64-windows-static-md-release'
+          os: windows-latest
+        - rid: macos-arm64
+          osx_arch: arm64
+          rust_target: aarch64-apple-darwin
+          vcpkg_host_triplet: 'arm64-osx-release'
+          vcpkg_target_triplet: 'arm64-osx-release'
+          os: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        # Fetch all history for version generation
+        fetch-depth: 0
+        fetch-tags: true
+
+    - name: Set up GCC
+      if: startsWith(matrix.rid, 'linux-')
+      uses: egor-tensin/setup-gcc@v1.3
+      with:
+        version: latest
+        platform: x64
+
+    - name: Setup CMake
+      uses: lukka/get-cmake@latest
+
+    - name: setup Ninja
+      uses: ashutoshvarma/setup-ninja@v1.1
+      with:
+        version: "1.12.1"
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgConfigurationJsonGlob: 'vcpkg-configuration.json'
+        vcpkgJsonGlob: 'vcpkg.json'
+
+    - name: Build
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $rid = '${{ matrix.rid }}'
+        $vcpkgTargetTriplet = '${{ matrix.vcpkg_target_triplet }}'
+        $vcpkgHostTriplet = '${{ matrix.vcpkg_host_triplet }}'
+        $qtArch = '${{ matrix.qt_arch }}'
+        $osxArch = '${{ matrix.osx_arch }}'
+        $additionalConfigureArgs = @()
+        if ($rid.StartsWith('win-')) {
+          $vsPath = &(Join-Path ${env:ProgramFiles(x86)} "\Microsoft Visual Studio\Installer\vswhere.exe") -property installationpath
+          Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
+          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=${{ matrix.msvc_arch }} -host_arch=x64'
+        }
+        if ($osxArch) {
+          $additionalConfigureArgs += "-DCMAKE_OSX_ARCHITECTURES=$osxArch"
+
+          # For https://github.com/rust-skia/rust-skia
+          $env:CLANGCC = "clang -arch $osxArch"
+          $env:CLANGCXX = "clang++ -arch $osxArch"
+        }
+        if ($vcpkgTargetTriplet) {
+          $additionalConfigureArgs += "-DVCPKG_TARGET_TRIPLET:STRING=$vcpkgTargetTriplet"
+        }
+        if ($vcpkgHostTriplet) {
+          $additionalConfigureArgs += "-DVCPKG_HOST_TRIPLET:STRING=$vcpkgHostTriplet"
+        }
+
+        cmake --preset native @additionalConfigureArgs
+        cmake --build --preset native-release

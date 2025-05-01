@@ -64,7 +64,7 @@ private:
     Config& config_;
     Logger& logger_;
 
-    // Helper Functions
+    // 辅助函数
     std::string get_device_id() const;
     std::string get_device_name() const;
     std::string get_certificate_fingerprint() const;
