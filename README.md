@@ -9,7 +9,9 @@
   <img src="https://img.shields.io/badge/language-C%2B%2B23-yellow.svg">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgreen.svg">
   <img src="https://img.shields.io/badge/network-boost.asio-blue.svg">
+  <a href="https://deepwiki.com/CodeSoul-bytedance/LanSend"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
+
 
 ## :pushpin: 简介
 
