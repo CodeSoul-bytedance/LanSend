@@ -46,8 +46,8 @@ public:
     ~TransferManager();
 
     // 传输控制
-    boost::asio::awaitable<TransferResult> start_transfer(const lansend::models::DeviceInfo& target,
-                                                          const std::filesystem::path& filepath);
+    std::future<TransferResult> start_transfer(const lansend::models::DeviceInfo& target,
+                                               const std::filesystem::path& filepath);
     void cancel_transfer(uint64_t transfer_id);
 
     // 状态查询
