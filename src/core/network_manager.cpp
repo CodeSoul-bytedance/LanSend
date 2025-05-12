@@ -75,7 +75,7 @@ std::future<TransferResult> NetworkManager::send_file(const lansend::models::Dev
                                                       const std::filesystem::path& filepath) {
     return std::async(std::launch::async, [this, target, filepath]() -> TransferResult {
         if (transfer_manager_) {
-            return transfer_manager_->start_transfer(target, filepath);
+            return transfer_manager_->start_transfer(target, filepath).get();
         }
         TransferResult result;
         result.success = false;
