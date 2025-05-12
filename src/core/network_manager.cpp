@@ -1,5 +1,6 @@
 #include "network_manager.hpp"
-#include "logger.hpp"
+#include "../util/config.hpp"
+#include "../util/logger.hpp"
 #include <filesystem>
 
 NetworkManager::NetworkManager(boost::asio::io_context& ioc, Config& config)
@@ -53,7 +54,7 @@ void NetworkManager::stop() {
 void NetworkManager::start_discovery() {
     if (discovery_manager_) {
         discovery_manager_->start(
-            /* ÕâÀï¿ÉÒÔ´«ÈëÅäÖÃÖĞµÄ¶Ë¿ÚºÅ£¬ÔİÊ±ÓÃÄ¬ÈÏÖµ */ config_.settings.port);
+            /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ĞµÄ¶Ë¿ÚºÅ£ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ä¬ï¿½ï¿½Öµ */ config_.settings.port);
     }
 }
 
@@ -70,17 +71,19 @@ std::vector<lansend::models::DeviceInfo> NetworkManager::get_discovered_devices(
     return {}; // Return an empty vector if discovery_manager_ is null
 }
 
-boost::asio::awaitable<TransferResult> NetworkManager::send_file(
-    const lansend::models::DeviceInfo& target, const std::filesystem::path& filepath) {
-    if (transfer_manager_) {
-        return transfer_manager_->start_transfer(target, filepath);
-    }
-    TransferResult result;
-    result.success = false;
-    result.error_message = "Transfer manager not initialized.";
-    result.transfer_id = 0;
-    result.end_time = std::chrono::system_clock::now();
-    return result;
+std::future<TransferResult> NetworkManager::send_file(const lansend::models::DeviceInfo& target,
+                                                      const std::filesystem::path& filepath) {
+    return std::async(std::launch::async, [this, target, filepath]() -> TransferResult {
+        if (transfer_manager_) {
+            return transfer_manager_->start_transfer(target, filepath);
+        }
+        TransferResult result;
+        result.success = false;
+        result.error_message = "Transfer manager not initialized.";
+        result.transfer_id = 0;
+        result.end_time = std::chrono::system_clock::now();
+        return result;
+    });
 }
 
 void NetworkManager::set_device_found_callback(

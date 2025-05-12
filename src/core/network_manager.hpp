@@ -45,8 +45,8 @@ public:
     std::vector<lansend::models::DeviceInfo> get_discovered_devices() const;
 
     // 文件传输相关
-    boost::asio::awaitable<TransferResult> send_file(const lansend::models::DeviceInfo& target,
-                                                     const std::filesystem::path& filepath);
+    std::future<TransferResult> send_file(const lansend::models::DeviceInfo& target,
+                                          const std::filesystem::path& filepath);
 
     // 为Electron预留的事件通知接口
     void set_device_found_callback(std::function<void(const lansend::models::DeviceInfo&)> callback);
