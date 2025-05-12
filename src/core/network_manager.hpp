@@ -55,8 +55,8 @@ public:
     void set_transfer_complete_callback(std::function<void(const TransferResult&)> callback);
 
 private:
-    Config& config_;
-    Logger& logger_;
+    Config* config_;
+    Logger* logger_;
     boost::asio::io_context& io_context_;
 
     std::unique_ptr<lansend::api::HttpServer> server_;

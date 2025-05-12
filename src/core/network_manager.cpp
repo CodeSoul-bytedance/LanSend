@@ -1,13 +1,12 @@
 #include "network_manager.hpp"
-#include "../util/config.hpp"
-#include "../util/logger.hpp"
+#include "src/util/logger.hpp" // Ensure Logger's full definition is included
 #include <filesystem>
 
 NetworkManager::NetworkManager(boost::asio::io_context& ioc, Config& config)
     : io_context_(ioc)
     , cert_manager_(std::make_unique<CertificateManager>())
     , server_(std::make_unique<lansend::api::HttpServer>(ioc, cert_manager_->get_ssl_context()))
-    , config_(config)
+    , config_(&config)
     , logger_(Logger::get_instance())
     , discovery_manager_(std::make_unique<DiscoveryManager>(ioc))
     , transfer_manager_(std::make_unique<TransferManager>(ioc)) {
