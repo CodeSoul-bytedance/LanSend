@@ -123,5 +123,33 @@
             "configuration": "RelWithDebInfo"
         }
     ],
-    "testPresets": []
+    "testPresets": [
+        {
+            "name": "native-debug-tests",
+            "displayName": "Native Debug Tests",
+            "configurePreset": "native", 
+            "configuration": "Debug",    
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "msvc-x64-debug-tests",
+            "displayName": "MSVC x64 Debug Tests",
+            "configurePreset": "msvc-x64",
+            "configuration": "Debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "msvc-x86-debug-tests",
+            "displayName": "MSVC x86 Debug Tests",
+            "configurePreset": "msvc-x86",
+            "configuration": "Debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ]
 }
