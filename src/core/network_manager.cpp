@@ -1,5 +1,4 @@
 #include "network_manager.hpp"
-#include "src/util/logger.hpp" // Ensure Logger's full definition is included
 #include <filesystem>
 
 NetworkManager::NetworkManager(boost::asio::io_context& ioc, Config& config)
@@ -52,8 +51,7 @@ void NetworkManager::stop() {
 
 void NetworkManager::start_discovery() {
     if (discovery_manager_) {
-        discovery_manager_->start(
-            /* ������Դ��������еĶ˿ںţ���ʱ��Ĭ��ֵ */ config_.settings.port);
+        discovery_manager_->start(config_.settings.port);
     }
 }
 
