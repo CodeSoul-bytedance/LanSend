@@ -52,7 +52,7 @@ public:
 
     // 状态查询
     std::optional<TransferState> get_transfer_state(uint64_t transfer_id) const;
-    std::vector<TransferState> get_active_transfers() const;
+    std::vector<TransferState>& get_active_transfers();
     std::optional<lansend::models::TransferMetadata> get_transfer_metadata(
         uint64_t transfer_id) const;
 
