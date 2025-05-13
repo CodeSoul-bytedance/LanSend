@@ -48,6 +48,12 @@ public:
     std::future<TransferResult> send_file(const lansend::models::DeviceInfo& target,
                                           const std::filesystem::path& filepath);
 
+    // 获取传输管理器实例引用
+    TransferManager& get_transfer_manager();
+
+    // 获取当前活动的传输列表引用
+    std::vector<TransferState>& get_active_transfers();
+
     // 为Electron预留的事件通知接口
     void set_device_found_callback(std::function<void(const lansend::models::DeviceInfo&)> callback);
     void set_transfer_progress_callback(

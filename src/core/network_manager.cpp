@@ -100,3 +100,11 @@ void NetworkManager::set_transfer_complete_callback(
     std::function<void(const TransferResult&)> callback) {
     transfer_complete_callback_ = callback;
 }
+
+TransferManager& NetworkManager::get_transfer_manager() {
+    return *transfer_manager_;
+}
+
+std::vector<TransferManager::TransferState>& NetworkManager::get_active_transfers() {
+    return transfer_manager_->get_active_transfers();
+}
