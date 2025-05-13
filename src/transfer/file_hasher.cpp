@@ -106,8 +106,7 @@ std::string FileHasher::calculate_sha256_sync(const std::filesystem::path& filep
 
     const int buffer_size = 16 * 1024 * 1024;
     std::unique_ptr<char[]> buffer = std::make_unique<char[]>(buffer_size);
-    while (file.good()) {
-        file.read(buffer.get(), buffer_size);
+    while (file.read(buffer.get(), buffer_size) || file.gcount() > 0) {
         std::streamsize bytes_read = file.gcount();
         if (bytes_read > 0) {
             if (!openssl_context_->update(reinterpret_cast<const unsigned char*>(buffer.get()),
