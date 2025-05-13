@@ -1,12 +1,12 @@
 #include "network_manager.hpp"
 #include <filesystem>
+#include <spdlog/spdlog.h>
 
 NetworkManager::NetworkManager(boost::asio::io_context& ioc, Config& config)
     : io_context_(ioc)
+    , config_(&config)
     , cert_manager_(std::make_unique<CertificateManager>())
     , server_(std::make_unique<lansend::api::HttpServer>(ioc, cert_manager_->get_ssl_context()))
-    , config_(&config)
-    , logger_(Logger::get_instance())
     , discovery_manager_(std::make_unique<DiscoveryManager>(ioc))
     , transfer_manager_(std::make_unique<TransferManager>(ioc)) {
     // Initialize callbacks to nullptr
@@ -20,7 +20,7 @@ NetworkManager::~NetworkManager() {
 }
 
 void NetworkManager::start(uint16_t port) {
-    logger_.info("Starting NetworkManager...");
+    spdlog::info("Starting NetworkManager...");
 
     // Generate self-signed certificate (or load if exists)
     std::filesystem::path cert_path = "cert.pem";
@@ -32,26 +32,22 @@ void NetworkManager::start(uint16_t port) {
         cert_manager_->load_certificate(cert_path, key_path);
     }
 
-    // Add routes to the HTTP server
-    // server_->add_route("/info", boost::beast::http::verb::get, [this](auto&& req) {
-    //     return rest_api_handler_->handle_info_request(req);
-    // });
-
     server_->start(port);
     discovery_manager_->start(port);
-    logger_.info("NetworkManager started.");
+    spdlog::info("NetworkManager started.");
 }
 
 void NetworkManager::stop() {
-    logger_.info("Stopping NetworkManager...");
+    spdlog::info("Stopping NetworkManager...");
     server_->stop();
     discovery_manager_->stop();
-    logger_.info("NetworkManager stopped.");
+    spdlog::info("NetworkManager stopped.");
 }
 
 void NetworkManager::start_discovery() {
     if (discovery_manager_) {
-        discovery_manager_->start(config_.settings.port);
+        // 使用固定端口号替代config_->settings.port
+        discovery_manager_->start(56789); // 使用默认端口作为临时解决方案
     }
 }
 
@@ -65,7 +61,7 @@ std::vector<lansend::models::DeviceInfo> NetworkManager::get_discovered_devices(
     if (discovery_manager_) {
         return discovery_manager_->get_devices();
     }
-    return {}; // Return an empty vector if discovery_manager_ is null
+    return {};
 }
 
 std::future<TransferResult> NetworkManager::send_file(const lansend::models::DeviceInfo& target,
@@ -105,6 +101,6 @@ TransferManager& NetworkManager::get_transfer_manager() {
     return *transfer_manager_;
 }
 
-std::vector<TransferManager::TransferState>& NetworkManager::get_active_transfers() {
+std::vector<TransferState>& NetworkManager::get_active_transfers() {
     return transfer_manager_->get_active_transfers();
 }

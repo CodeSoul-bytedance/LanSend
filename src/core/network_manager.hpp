@@ -21,9 +21,9 @@
 class DiscoveryManager;
 class TransferManager;
 class CertificateManager;
-class RestApiHandler; // 假设这个文件只包含前向声明
 class Config;
-class Logger;
+class RestApiHandler; // 假设这个文件只包含前向声明
+
 namespace lansend {
 namespace api {
 class HttpServer;
@@ -62,7 +62,6 @@ public:
 
 private:
     Config* config_;
-    Logger* logger_;
     boost::asio::io_context& io_context_;
 
     std::unique_ptr<lansend::api::HttpServer> server_;
