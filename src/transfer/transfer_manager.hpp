@@ -46,13 +46,13 @@ public:
     ~TransferManager();
 
     // 传输控制
-    std::future<TransferResult> start_transfer(const lansend::models::DeviceInfo& target,
-                                               const std::filesystem::path& filepath);
+    boost::asio::awaitable<TransferResult> start_transfer(const lansend::models::DeviceInfo& target,
+                                                          const std::filesystem::path& filepath);
     void cancel_transfer(uint64_t transfer_id);
 
     // 状态查询
     std::optional<TransferState> get_transfer_state(uint64_t transfer_id) const;
-    std::vector<TransferState>& get_active_transfers();
+    std::vector<TransferState> get_active_transfers() const;
     std::optional<lansend::models::TransferMetadata> get_transfer_metadata(
         uint64_t transfer_id) const;
 
