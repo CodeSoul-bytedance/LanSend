@@ -5,8 +5,8 @@
 #include "../models/transfer_progress.hpp"
 #include "../utils/logger.hpp"
 #include "progress_display.hpp"
-#include "terminal.hpp"
 #include "argument_parser.hpp"
+#include "terminal.hpp"
 #include <memory>
 #include <string>
 #include <vector>
