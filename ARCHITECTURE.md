@@ -234,11 +234,11 @@ class ProgressDisplay {
 
 2.1 配置管理 (Config)
 
-位于 src/util/
+位于 src/utils/
 TODO
 2.2 日志管理 (Logger)
 
-位于 src/util/
+位于 src/utils/
 TODO
 3. 构建系统
 
@@ -281,7 +281,7 @@ src/
 │   ├── argument_parser.hpp
 │   ├── terminal.hpp
 │   └── progress_display.hpp
-├── util/
+├── utils/
 │             
 └── main.cpp
 6. 架构图

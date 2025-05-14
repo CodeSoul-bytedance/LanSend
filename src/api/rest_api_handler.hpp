@@ -2,8 +2,8 @@
 
 // #include "../core/network_manager.hpp"
 #include "../transfer/transfer_manager.hpp"
-#include "../util/config.hpp"
-#include "../util/logger.hpp"
+#include "../utils/config.hpp"
+#include "../utils/logger.hpp"
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <functional>

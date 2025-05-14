@@ -1,8 +1,8 @@
 #pragma once
 
 #include "../models/device_info.hpp"
-#include "../util/config.hpp"
-#include "../util/logger.hpp"
+#include "../utils/config.hpp"
+#include "../utils/logger.hpp"
 #include <boost/asio.hpp>
 #include <chrono>
 #include <cstdint>
@@ -10,6 +10,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <mutex>
+
 
 class DiscoveryManager {
 public:
@@ -38,6 +40,7 @@ public:
     void set_device_lost_callback(std::function<void(const std::string&)> callback);
 
 private:
+    std::mutex devices_mutex_;
     boost::asio::io_context& io_context_;
 
     std::map<std::string, lansend::models::DeviceInfo> discovered_devices_;

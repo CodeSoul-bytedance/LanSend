@@ -53,8 +53,8 @@ struct Settings {
 
 inline Settings settings;
 
-void initConfig();
+void init_config();
 
-void saveConfig();
+void save_config();
 
 } // namespace lansend

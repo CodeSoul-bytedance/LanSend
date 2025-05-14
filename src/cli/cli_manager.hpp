@@ -3,9 +3,10 @@
 #include "../core/network_manager.hpp"
 #include "../models/device_info.hpp"
 #include "../models/transfer_progress.hpp"
-#include "../util/logger.hpp"
+#include "../utils/logger.hpp"
 #include "progress_display.hpp"
 #include "terminal.hpp"
+#include "argument_parser.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -19,6 +20,7 @@ class HttpServer;
 class CliManager {
 public:
     CliManager(NetworkManager& network_manager);
+
     ~CliManager();
 
     // 命令处理
@@ -34,9 +36,9 @@ public:
 
 private:
     NetworkManager& network_manager_;
-
     std::unique_ptr<Terminal> terminal_;
     std::unique_ptr<ProgressDisplay> progress_display_;
+    std::unique_ptr<ArgumentParser> argument_parser;
 
     // 命令解析
     std::vector<std::string> parse_command(const std::string& command);

@@ -12,14 +12,14 @@
 namespace lansend {
 namespace details {
 
-const std::filesystem::path configDir =
+const std::filesystem::path config_dir =
 #if defined(_WIN32) || defined(_WIN64)
     std::filesystem::path(std::getenv("APPDATA")) / "CodeSoul" / "LanSend";
 #else
     std::filesystem::path(std::getenv("HOME")) / ".config" / "CodeSoul" / "LanSend";
 #endif
 
-const std::filesystem::path defaultSaveDir = [] {
+const std::filesystem::path default_save_dir = [] {
 #if defined(_WIN32) || defined(_WIN64)
     PWSTR path = nullptr;
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Downloads, 0, nullptr, &path))) {
@@ -36,7 +36,7 @@ const std::filesystem::path defaultSaveDir = [] {
 
 } // namespace details
 
-static void loadSetting() {
+static void load_setting() {
     if (!config.contains("setting")) {
         config.insert("setting", toml::table{});
     }
@@ -63,18 +63,18 @@ static void loadSetting() {
         settings.autoSave = false;
     }
     if (setting.contains("save-dir")) {
-        settings.saveDir = setting["save-dir"].value_or(details::defaultSaveDir.string());
+        settings.saveDir = setting["save-dir"].value_or(details::default_save_dir.string());
     } else {
-        settings.saveDir = details::defaultSaveDir;
+        settings.saveDir = details::default_save_dir;
     }
 }
 
-void initConfig() {
-    if (!std::filesystem::exists(details::configDir)) {
+void init_config() {
+    if (!std::filesystem::exists(details::config_dir)) {
         spdlog::info("Config directory does not exist, creating...");
-        std::filesystem::create_directories(details::configDir);
+        std::filesystem::create_directories(details::config_dir);
     }
-    auto path = details::configDir / "config.toml";
+    auto path = details::config_dir / "config.toml";
     if (!std::filesystem::exists(path)) {
         std::ofstream ofs(path);
         spdlog::info("Config file does not exist, creating...");
@@ -86,11 +86,11 @@ void initConfig() {
         config = toml::parse("");
     }
 
-    loadSetting();
+    load_setting();
 }
 
-void saveConfig() {
-    auto path = details::configDir / "config.toml";
+void save_config() {
+    auto path = details::config_dir / "config.toml";
     std::ofstream ofs(path);
     if (!ofs.is_open()) {
         spdlog::error("Failed to open \"{}\" for saving config.", path.string());
