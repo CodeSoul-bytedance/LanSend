@@ -1,11 +1,9 @@
 #pragma once
 
 #include "../core/network_manager.hpp"
-
 #include "../models/device_info.hpp"
 #include "../models/transfer_progress.hpp"
 #include "../utils/logger.hpp"
-
 #include "progress_display.hpp"
 #include "terminal.hpp"
 #include "argument_parser.hpp"

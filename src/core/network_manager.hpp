@@ -62,7 +62,6 @@ public:
         std::function<void(const lansend::models::TransferProgress&)> callback);
     void set_transfer_complete_callback(std::function<void(const TransferResult&)> callback);
 
-
 private:
     Config* config_;
     boost::asio::io_context& io_context_;
