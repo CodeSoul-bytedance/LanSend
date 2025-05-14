@@ -49,7 +49,7 @@
     - boost::asio::awaitable<HttpResponse> handle_upload_chunk(...): 处理上传文件块请求
     - boost::asio::awaitable<HttpResponse> handle_download_chunk(...): 处理下载文件块请求
     - boost::asio::awaitable<HttpResponse> handle_events_stream(...): 处理事件流
-  - Config (src/util/config/config.hpp)
+  - Config (src/utils/config/config.hpp)
     - 职责：管理应用配置，提供配置访问接口
     - 成员：uint16_t https_port_, std::filesystem::path download_dir_, std::string cert_path_, std::string key_path_, uint16_t discovery_port_, std::string device_name_
     - bool load(int argc, char* argv[]): 加载配置
@@ -60,7 +60,7 @@
     - std::string get_key_path() const: 获取密钥路径
     - uint16_t get_discovery_port() const: 获取发现端口
     - std::string get_device_name() const: 获取设备名称
-  - Logger (src/util/logger/logger.hpp)
+  - Logger (src/utils/logger/logger.hpp)
     - 职责：管理日志记录，提供多级别日志支持，支持日志转发
     - 成员：spdlog::logger logger_
     - static void init(spdlog::level::level_enum level = spdlog::level::info): 初始化日志器

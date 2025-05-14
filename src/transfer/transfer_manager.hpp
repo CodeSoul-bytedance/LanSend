@@ -2,8 +2,8 @@
 
 #include "../models/device_info.hpp"
 #include "../models/transfer_metadata.hpp"
-#include "../util/config.hpp"
-#include "../util/logger.hpp"
+#include "../utils/config.hpp"
+#include "../utils/logger.hpp"
 #include <atomic>
 #include <boost/asio.hpp>
 #include <chrono>

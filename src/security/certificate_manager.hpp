@@ -1,10 +1,8 @@
 #pragma once
 
-#include "../util/config.hpp"
-#include "../util/logger.hpp"
 #include <boost/asio/ssl/context.hpp>
 #include <filesystem>
-#include <memory>
+#include <models/SecurityContext.hpp>
 #include <string>
 
 namespace boost::asio::ssl {
@@ -13,24 +11,34 @@ class context;
 
 class CertificateManager {
 public:
-    CertificateManager();
+    CertificateManager(const std::filesystem::path& cert_dir);
     ~CertificateManager();
 
-    // 证书管理
-    bool generate_self_signed_certificate(const std::filesystem::path& cert_path,
-                                          const std::filesystem::path& key_path);
-    bool load_certificate(const std::filesystem::path& cert_path,
-                          const std::filesystem::path& key_path);
-    std::string get_certificate_fingerprint() const;
+    bool init_security_context();
 
-    // SSL上下文
-    boost::asio::ssl::context& get_ssl_context();
+    const SecurityContext& security_context() const;
+
+    // Calculate the SHA-256 hash of the certificate
+    static std::string calculate_certificate_hash(const std::string& certificate_pem);
+
+    bool verify_remote_certificate(X509* cert, const std::string& expected_fingerprint);
+
+    void set_current_hostname(const std::string& hostname);
+    std::string current_hostname() const;
 
 private:
-    std::unique_ptr<boost::asio::ssl::context> ssl_context_;
-    std::string certificate_fingerprint_;
+    bool generate_self_signed_certificate();
 
-    // OpenSSL相关
-    struct OpenSSLContext;
-    std::unique_ptr<OpenSSLContext> openssl_context_;
+    bool save_security_context();
+
+    bool load_security_context();
+
+    SecurityContext security_context_;
+    std::filesystem::path certificate_dir_;
+
+    // Hostname of the current connection
+    std::string current_hostname_;
+    mutable std::mutex hostname_mutex_;
+
+    static constexpr int kCertValidityDays = 3650;
 };

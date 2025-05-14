@@ -7,8 +7,8 @@
 #include "../models/transfer_progress.hpp"
 #include "../security/certificate_manager.hpp"
 #include "../transfer/transfer_manager.hpp"
-#include "../util/config.hpp"
-#include "../util/logger.hpp"
+#include "../utils/config.hpp"
+#include "../utils/logger.hpp"
 #include <boost/asio.hpp>
 #include <cstdint>
 #include <filesystem>
@@ -43,6 +43,8 @@ public:
     void start_discovery();
     void stop_discovery();
     std::vector<lansend::models::DeviceInfo> get_discovered_devices() const;
+    std::vector<TransferState> get_active_transfers();
+    TransferManager& get_transfer_manager();
 
     // 文件传输相关
     std::future<TransferResult> send_file(const lansend::models::DeviceInfo& target,
@@ -59,6 +61,7 @@ public:
     void set_transfer_progress_callback(
         std::function<void(const lansend::models::TransferProgress&)> callback);
     void set_transfer_complete_callback(std::function<void(const TransferResult&)> callback);
+
 
 private:
     Config* config_;
