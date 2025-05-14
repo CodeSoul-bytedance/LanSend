@@ -12,6 +12,8 @@
 #include <boost/asio/ip/udp.hpp>
 #include "../models/device_info.hpp"
 #include "../models/transfer_progress.hpp"
+#include <chrono>
+#include <random>
 using json = nlohmann::json; 
 using namespace boost::asio;
 
@@ -21,18 +23,23 @@ DiscoveryManager::DiscoveryManager(io_context& ioc)
       listen_socket_(ioc),
       broadcast_timer_(ioc),
       device_found_callback_([](const lansend::models::DeviceInfo& device) {
-          std::cout << "Device found: " << device.device_id << std::endl;
+          spdlog::info("Device found:{}",device.device_id);
       }),
       device_lost_callback_([](const std::string& device_id) {
-          std::cout << "Device lost: " << device_id << std::endl;
-      }){}
+          spdlog::info("Device lost:{}",device_id);
+      }){
+        device_id_=generateDeviceId();
+        spdlog::info("discovery_manager created.");
+      }
 
 DiscoveryManager::~DiscoveryManager() {
     stop();
+    spdlog::info("stop to discover devices.");
 }
 
 void DiscoveryManager::start(uint16_t port) {
     try {
+        spdlog::info("start to discover devices...");
         // 初始化广播套接字
         broadcast_socket_.open(ip::udp::v4());
         broadcast_socket_.set_option(socket_base::broadcast(true));
@@ -48,7 +55,7 @@ void DiscoveryManager::start(uint16_t port) {
         co_spawn(io_context_, broadcaster(), detached);
         co_spawn(io_context_, listener(), detached);
     } catch (const std::exception& e) {
-        std::cerr << "Error starting DiscoveryManager: " << e.what() << std::endl;
+        spdlog::error("Error starting DiscoveryManager: {}",e.what());
     }
 }
 
@@ -56,13 +63,16 @@ void DiscoveryManager::stop() {
     try {
         if (broadcast_socket_.is_open()) {
             broadcast_socket_.close();
+            spdlog::info("broadcast socket is closed");
         }
         if (listen_socket_.is_open()) {
             listen_socket_.close();
+            spdlog::info("listen socket is closed");
         }
         broadcast_timer_.cancel();
+        spdlog::info("broadcast timer is canceled");
     } catch (const std::exception& e) {
-        std::cerr << "Error stopping DiscoveryManager: " << e.what() << std::endl;
+        spdlog::error("Error stopping DiscoveryManager: {}",e.what());
     }
 }
 
@@ -111,36 +121,48 @@ void DiscoveryManager::set_device_lost_callback(std::function<void(const std::st
 awaitable<void> DiscoveryManager::broadcaster() {
     try {
         const std::string broadcast_address = "255.255.255.255";
-        const uint16_t broadcast_port = 37020; // 示例端口
+        const uint16_t broadcast_port = 37020; 
         ip::udp::endpoint broadcast_endpoint(ip::make_address(broadcast_address), broadcast_port);
 
         // 模拟设备信息
         lansend::models::DeviceInfo self_device;
-        self_device.device_id = "self_device_id";
+        self_device.device_id = device_id_;
         self_device.alias = "Self Device";
-        self_device.device_model = "win"; // 假设设备类型为 Windows
+        self_device.device_model = "win"; 
         self_device.ip_address = "127.0.0.1";
         self_device.port = 37020;
 
-        // 使用 nlohmann/json 进行序列化
         json device_json = self_device;
         std::string data = device_json.dump();
 
         while (broadcast_socket_.is_open()) {
+            spdlog::info("start to broadcast device info every 5 seconds...");
             co_await broadcast_socket_.async_send_to(buffer(data), broadcast_endpoint, use_awaitable);
             co_await broadcast_timer_.async_wait(use_awaitable);
-            broadcast_timer_.expires_after(std::chrono::seconds(5)); // 每 5 秒广播一次
+            broadcast_timer_.expires_after(std::chrono::seconds(3)); // 每 3 秒广播一次
         }
     } catch (const std::exception& e) {
-        std::cerr << "Error in broadcaster: " << e.what() << std::endl;
+        spdlog::error("Error in broadcaster: {}",e.what());
     }
 }
 
+std::string DiscoveryManager::generateDeviceId() {
+    auto now = std::chrono::system_clock::now();
+    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(1000, 9999);
+    int randomNum = dis(gen);
+
+    return std::to_string(timestamp) + "_" + std::to_string(randomNum);
+}
 awaitable<void> DiscoveryManager::listener() {
     try {
         constexpr size_t buffer_size = 1024;
         std::array<char, buffer_size> recv_buffer;
         ip::udp::endpoint sender_endpoint;
+
 
         while (listen_socket_.is_open()) {
             size_t bytes_received = co_await listen_socket_.async_receive_from(
@@ -148,17 +170,25 @@ awaitable<void> DiscoveryManager::listener() {
 
             std::string data(recv_buffer.data(), bytes_received);
 
+
+
             try {
-                // 使用 nlohmann/json 进行反序列化
                 json device_json = json::parse(data);
                 lansend::models::DeviceInfo device = device_json.get<lansend::models::DeviceInfo>();
-
+                // 判断是否是自己的设备，若是则跳过后续处理
+                if (device.device_id == device_id_) {
+                    spdlog::info("Received message from self, skipping...");
+                    // std::cout << "Received message from self, skipping..." << std::endl;
+                    continue;
+                }
                 add_device(device);
+                spdlog::info("Received device info from {}:{}",sender_endpoint.address().to_string(),sender_endpoint.port());
             } catch (const json::parse_error& e) {
-                std::cerr << "Error parsing JSON data: " << e.what() << std::endl;
+                spdlog::error("Error parsing JSON data: {}",e.what());
             }
         }
     } catch (const std::exception& e) {
-        std::cerr << "Error in listener: " << e.what() << std::endl;
+        spdlog::error("Error in listener: {}",e.what());
     }
 }
+

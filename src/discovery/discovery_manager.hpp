@@ -42,6 +42,7 @@ public:
 private:
     std::mutex devices_mutex_;
     boost::asio::io_context& io_context_;
+    std::string device_id_;
 
     std::map<std::string, lansend::models::DeviceInfo> discovered_devices_;
     std::function<void(const lansend::models::DeviceInfo&)> device_found_callback_;
@@ -55,4 +56,6 @@ private:
     // 协程任务
     boost::asio::awaitable<void> broadcaster();
     boost::asio::awaitable<void> listener();
+
+    std::string generateDeviceId();
 };
