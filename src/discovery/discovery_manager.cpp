@@ -1,36 +1,35 @@
 #include "../utils/logger.hpp"
 #include <boost/asio/use_awaitable.hpp>
-#include <nlohmann/json.hpp> 
+#include <nlohmann/json.hpp>
 // #include <boost/asio/udp.hpp>
+#include "../models/device_info.hpp"
+#include "../models/transfer_progress.hpp"
 #include "discovery_manager.hpp"
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/asio/ip/multicast.hpp>
+#include <boost/asio/ip/udp.hpp>
+#include <chrono>
 #include <iostream>
 #include <mutex>
-#include <boost/asio/ip/udp.hpp>
-#include "../models/device_info.hpp"
-#include "../models/transfer_progress.hpp"
-#include <chrono>
 #include <random>
-using json = nlohmann::json; 
+using json = nlohmann::json;
 using namespace boost::asio;
 
 DiscoveryManager::DiscoveryManager(io_context& ioc)
-    : io_context_(ioc),
-      broadcast_socket_(ioc),
-      listen_socket_(ioc),
-      broadcast_timer_(ioc),
-      device_found_callback_([](const lansend::models::DeviceInfo& device) {
-          spdlog::info("Device found:{}",device.device_id);
-      }),
-      device_lost_callback_([](const std::string& device_id) {
-          spdlog::info("Device lost:{}",device_id);
-      }){
-        device_id_=generateDeviceId();
-        spdlog::info("discovery_manager created.");
-      }
+    : io_context_(ioc)
+    , broadcast_socket_(ioc)
+    , listen_socket_(ioc)
+    , broadcast_timer_(ioc)
+    , device_found_callback_([](const lansend::models::DeviceInfo& device) {
+        spdlog::info("Device found:{}", device.device_id);
+    })
+    , device_lost_callback_(
+          [](const std::string& device_id) { spdlog::info("Device lost:{}", device_id); }) {
+    device_id_ = generateDeviceId();
+    spdlog::info("discovery_manager created.");
+}
 
 DiscoveryManager::~DiscoveryManager() {
     stop();
@@ -55,7 +54,7 @@ void DiscoveryManager::start(uint16_t port) {
         co_spawn(io_context_, broadcaster(), detached);
         co_spawn(io_context_, listener(), detached);
     } catch (const std::exception& e) {
-        spdlog::error("Error starting DiscoveryManager: {}",e.what());
+        spdlog::error("Error starting DiscoveryManager: {}", e.what());
     }
 }
 
@@ -72,7 +71,7 @@ void DiscoveryManager::stop() {
         broadcast_timer_.cancel();
         spdlog::info("broadcast timer is canceled");
     } catch (const std::exception& e) {
-        spdlog::error("Error stopping DiscoveryManager: {}",e.what());
+        spdlog::error("Error stopping DiscoveryManager: {}", e.what());
     }
 }
 
@@ -84,7 +83,7 @@ void DiscoveryManager::add_device(const lansend::models::DeviceInfo& device) {
         if (device_found_callback_) {
             device_found_callback_(device);
         }
-    } 
+    }
     //else {
     //     it->second.last_seen = std::chrono::system_clock::now();
     // }
@@ -110,7 +109,8 @@ std::vector<lansend::models::DeviceInfo> DiscoveryManager::get_devices() const {
     return devices;
 }
 
-void DiscoveryManager::set_device_found_callback(std::function<void(const lansend::models::DeviceInfo&)> callback) {
+void DiscoveryManager::set_device_found_callback(
+    std::function<void(const lansend::models::DeviceInfo&)> callback) {
     device_found_callback_ = callback;
 }
 
@@ -121,14 +121,14 @@ void DiscoveryManager::set_device_lost_callback(std::function<void(const std::st
 awaitable<void> DiscoveryManager::broadcaster() {
     try {
         const std::string broadcast_address = "255.255.255.255";
-        const uint16_t broadcast_port = 37020; 
+        const uint16_t broadcast_port = 37020;
         ip::udp::endpoint broadcast_endpoint(ip::make_address(broadcast_address), broadcast_port);
 
         // 模拟设备信息
         lansend::models::DeviceInfo self_device;
         self_device.device_id = device_id_;
         self_device.alias = "Self Device";
-        self_device.device_model = "win"; 
+        self_device.device_model = "win";
         self_device.ip_address = "127.0.0.1";
         self_device.port = 37020;
 
@@ -137,18 +137,21 @@ awaitable<void> DiscoveryManager::broadcaster() {
 
         while (broadcast_socket_.is_open()) {
             spdlog::info("start to broadcast device info every 5 seconds...");
-            co_await broadcast_socket_.async_send_to(buffer(data), broadcast_endpoint, use_awaitable);
+            co_await broadcast_socket_.async_send_to(buffer(data),
+                                                     broadcast_endpoint,
+                                                     use_awaitable);
             co_await broadcast_timer_.async_wait(use_awaitable);
             broadcast_timer_.expires_after(std::chrono::seconds(3)); // 每 3 秒广播一次
         }
     } catch (const std::exception& e) {
-        spdlog::error("Error in broadcaster: {}",e.what());
+        spdlog::error("Error in broadcaster: {}", e.what());
     }
 }
 
 std::string DiscoveryManager::generateDeviceId() {
     auto now = std::chrono::system_clock::now();
-    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch())
+                         .count();
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -163,14 +166,12 @@ awaitable<void> DiscoveryManager::listener() {
         std::array<char, buffer_size> recv_buffer;
         ip::udp::endpoint sender_endpoint;
 
-
         while (listen_socket_.is_open()) {
-            size_t bytes_received = co_await listen_socket_.async_receive_from(
-                buffer(recv_buffer), sender_endpoint, use_awaitable);
+            size_t bytes_received = co_await listen_socket_.async_receive_from(buffer(recv_buffer),
+                                                                               sender_endpoint,
+                                                                               use_awaitable);
 
             std::string data(recv_buffer.data(), bytes_received);
-
-
 
             try {
                 json device_json = json::parse(data);
@@ -182,13 +183,14 @@ awaitable<void> DiscoveryManager::listener() {
                     continue;
                 }
                 add_device(device);
-                spdlog::info("Received device info from {}:{}",sender_endpoint.address().to_string(),sender_endpoint.port());
+                spdlog::info("Received device info from {}:{}",
+                             sender_endpoint.address().to_string(),
+                             sender_endpoint.port());
             } catch (const json::parse_error& e) {
-                spdlog::error("Error parsing JSON data: {}",e.what());
+                spdlog::error("Error parsing JSON data: {}", e.what());
             }
         }
     } catch (const std::exception& e) {
-        spdlog::error("Error in listener: {}",e.what());
+        spdlog::error("Error in listener: {}", e.what());
     }
 }
-
