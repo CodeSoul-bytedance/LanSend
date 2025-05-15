@@ -43,8 +43,7 @@ public:
     void start_discovery();
     void stop_discovery();
     std::vector<lansend::models::DeviceInfo> get_discovered_devices() const;
-    std::vector<TransferState> get_active_transfers();
-    TransferManager& get_transfer_manager();
+    // std::vector<TransferState> get_active_transfers();
 
     // 文件传输相关
     std::future<TransferResult> send_file(const lansend::models::DeviceInfo& target,
@@ -53,8 +52,8 @@ public:
     // 获取传输管理器实例引用
     TransferManager& get_transfer_manager();
 
-    // 获取当前活动的传输列表引用
-    std::vector<TransferState>& get_active_transfers();
+    // 获取当前活动的传输列表
+    std::vector<TransferState> get_active_transfers();
 
     // 为Electron预留的事件通知接口
     void set_device_found_callback(std::function<void(const lansend::models::DeviceInfo&)> callback);
@@ -70,6 +69,7 @@ private:
     std::unique_ptr<DiscoveryManager> discovery_manager_;
     std::unique_ptr<TransferManager> transfer_manager_;
     std::unique_ptr<CertificateManager> cert_manager_;
+    boost::asio::ssl::context ssl_context_;
 
     // 事件回调
     std::function<void(const lansend::models::DeviceInfo&)> device_found_callback_;

@@ -4,6 +4,7 @@
 #include "../models/transfer_metadata.hpp"
 #include "../utils/config.hpp"
 #include "../utils/logger.hpp"
+#include "file_hasher.hpp"
 #include <atomic>
 #include <boost/asio.hpp>
 #include <boost/beast/http.hpp>
