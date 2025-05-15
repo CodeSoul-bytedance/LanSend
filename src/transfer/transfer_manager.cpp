@@ -192,140 +192,130 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
     // TODO(optional): Populate preview_data_str if preview_data_bytes (was preview_data) is generated and converted
     // Example: if (preview_data_bytes.has_value()) { preview_data_str = util::to_base64(*preview_data_bytes); }
 
-    // 5. Create and persist TransferMetadata
-    lansend::models::TransferMetadata metadata;
-    metadata.transfer_id = transfer_id;
-    metadata.file_name = filepath.filename().string();
-    metadata.file_size = file_size;
-    metadata.file_hash = calculated_file_hash;
-    metadata.file_type = file_type;
-    metadata.preview = preview_data_str;
-    metadata.source_device_id = config_.device_id;
-    metadata.target_device_id = target.device_id;
-    metadata.status = lansend::models::TransferStatus::PENDING;
-    metadata.chunk_size = config_.chunkSize;
-    metadata.total_chunks = (file_size > 0)
-                                ? (file_size + config_.chunkSize - 1) / config_.chunkSize
-                                : 0;
-    metadata.local_filepath = filepath.string();
-    metadata.created_at = std::chrono::system_clock::now();
-    metadata.updated_at = std::chrono::system_clock::now();
+    bool proceed_with_transfer = true;
+    TransferResult result_to_return;
+    result_to_return.transfer_id = transfer_id;
 
-    if (metadata.total_chunks > 0) {
-        metadata.chunks.reserve(metadata.total_chunks);
-        for (uint64_t i = 0; i < metadata.total_chunks; ++i) {
-            metadata.chunks.push_back({i, std::nullopt, false});
+    std::string extracted_metadata_filename;
+
+    if (proceed_with_transfer) {
+        // --- BEGIN: Scoped block for TransferMetadata and its persistence ---
+        {
+            lansend::models::TransferMetadata metadata_obj_scoped;
+            metadata_obj_scoped.transfer_id = transfer_id;
+            metadata_obj_scoped.file_name = filepath.filename().string();
+            metadata_obj_scoped.file_size = file_size;
+            metadata_obj_scoped.file_hash = calculated_file_hash;
+            metadata_obj_scoped.file_type = file_type;
+            metadata_obj_scoped.preview = preview_data_str;
+            metadata_obj_scoped.source_device_id = config_.device_id;
+            metadata_obj_scoped.target_device_id = target.device_id;
+            metadata_obj_scoped.status = lansend::models::TransferStatus::PENDING;
+            metadata_obj_scoped.chunk_size = config_.chunkSize;
+            metadata_obj_scoped.total_chunks = (file_size > 0) ? (file_size + config_.chunkSize - 1)
+                                                                     / config_.chunkSize
+                                                               : 0;
+            metadata_obj_scoped.local_filepath = filepath.string();
+            metadata_obj_scoped.created_at = std::chrono::system_clock::now();
+            metadata_obj_scoped.updated_at = std::chrono::system_clock::now();
+
+            if (metadata_obj_scoped.total_chunks > 0) {
+                metadata_obj_scoped.chunks.reserve(metadata_obj_scoped.total_chunks);
+                for (uint64_t i = 0; i < metadata_obj_scoped.total_chunks; ++i) {
+                    metadata_obj_scoped.chunks.push_back({i, std::nullopt, false});
+                }
+            }
+            if (metadata_obj_scoped.total_chunks == 0 && file_size == 0) {
+                metadata_obj_scoped.status = lansend::models::TransferStatus::COMPLETED;
+            }
+
+            // Extract necessary data before metadata_obj_scoped is destructed
+            extracted_metadata_filename = metadata_obj_scoped.file_name;
+
+            // Persist metadata_obj_scoped
+            try {
+                std::filesystem::path metadata_dir = config_.metadataStoragePath;
+                std::error_code ec;
+                std::filesystem::create_directories(metadata_dir, ec);
+                if (ec) {
+                    std::string msg = fmt::format("Failed to create metadata directory {}: {}",
+                                                  metadata_dir.string(),
+                                                  ec.message());
+                    spdlog::error(msg);
+                    result_to_return.error_message = msg;
+                    result_to_return.end_time = std::chrono::system_clock::now();
+                    proceed_with_transfer = false;
+                }
+
+                if (proceed_with_transfer) {
+                    std::filesystem::path metadata_file_path = metadata_dir
+                                                               / (std::to_string(transfer_id)
+                                                                  + ".meta");
+                    nlohmann::json metadata_json_for_persistence = metadata_obj_scoped;
+                    std::ofstream ofs_for_persistence(metadata_file_path, std::ios::binary);
+
+                    if (!ofs_for_persistence) {
+                        std::string msg
+                            = fmt::format("Failed to open metadata file for writing: {}",
+                                          metadata_file_path.string());
+                        spdlog::error(msg);
+                        result_to_return.error_message = msg;
+                        result_to_return.end_time = std::chrono::system_clock::now();
+                        proceed_with_transfer = false;
+                    } else {
+                        ofs_for_persistence << metadata_json_for_persistence.dump(4);
+                        if (ofs_for_persistence.fail()) {
+                            std::string msg
+                                = fmt::format("Failed to write transfer metadata to file: {}",
+                                              metadata_file_path.string());
+                            spdlog::error(msg);
+                            result_to_return.error_message = msg;
+                            result_to_return.end_time = std::chrono::system_clock::now();
+                            proceed_with_transfer = false;
+                        }
+                        ofs_for_persistence.close();
+                        if (ofs_for_persistence.fail()) {
+                            std::string msg = fmt::format("Error closing metadata file {}.",
+                                                          metadata_file_path.string());
+                            spdlog::error(msg);
+                            result_to_return.error_message = msg;
+                            result_to_return.end_time = std::chrono::system_clock::now();
+                            proceed_with_transfer = false;
+                        }
+                    }
+                }
+            } catch (const nlohmann::json::exception& je) {
+                std::string msg
+                    = fmt::format("JSON error while saving transfer metadata for ID {}: {}",
+                                  transfer_id,
+                                  je.what());
+                spdlog::error(msg);
+                result_to_return.error_message = msg;
+                result_to_return.end_time = std::chrono::system_clock::now();
+                proceed_with_transfer = false;
+            } catch (const std::filesystem::filesystem_error& fse) {
+                std::string msg
+                    = fmt::format("Filesystem error while saving transfer metadata for ID {}: {}",
+                                  transfer_id,
+                                  fse.what());
+                spdlog::error(msg);
+                result_to_return.error_message = msg;
+                result_to_return.end_time = std::chrono::system_clock::now();
+                proceed_with_transfer = false;
+            } catch (const std::exception& e) {
+                std::string msg
+                    = fmt::format("Generic exception while saving transfer metadata for ID {}: {}",
+                                  transfer_id,
+                                  e.what());
+                spdlog::error(msg);
+                result_to_return.error_message = msg;
+                result_to_return.end_time = std::chrono::system_clock::now();
+                proceed_with_transfer = false;
+            }
         }
     }
 
-    if (metadata.total_chunks == 0 && file_size == 0) {
-        metadata.status = lansend::models::TransferStatus::COMPLETED;
-    }
-
-    try {
-        // Create metadata directory if it doesn't exist
-        std::filesystem::path metadata_dir = config_.metadataStoragePath;
-        std::error_code ec;
-        std::filesystem::create_directories(metadata_dir,
-                                            ec); // Create dir, ignore if exists, check error
-        if (ec) {                                // An error occurred creating the directory
-            std::string msg = fmt::format("Failed to create metadata directory {}: {}",
-                                          metadata_dir.string(),
-                                          ec.message());
-            spdlog::error(msg);
-            TransferResult result_to_return;
-            result_to_return.success = false;
-            result_to_return.error_message = msg;
-            result_to_return.transfer_id = transfer_id;
-            result_to_return.end_time = std::chrono::system_clock::now();
-            co_return result_to_return;
-        }
-
-        std::filesystem::path metadata_file_path = metadata_dir
-                                                   / (std::to_string(transfer_id) + ".meta");
-
-        // Serialize metadata to JSON
-        nlohmann::json metadata_json
-            = metadata; // Relies on the friend to_json function in TransferMetadata
-
-        // Write JSON to file
-        std::ofstream ofs(metadata_file_path, std::ios::binary);
-        if (!ofs) { // Check if file opened successfully
-            std::string msg = fmt::format("Failed to open metadata file for writing: {}",
-                                          metadata_file_path.string());
-            spdlog::error(msg);
-            TransferResult result_to_return;
-            result_to_return.success = false;
-            result_to_return.error_message = msg;
-            result_to_return.transfer_id = transfer_id;
-            result_to_return.end_time = std::chrono::system_clock::now();
-            co_return result_to_return;
-        }
-
-        ofs << metadata_json.dump(
-            4); // dump(4) for pretty print; can throw nlohmann::json::exception
-
-        if (ofs.fail()) { // Check for write errors (failbit or badbit)
-            std::string msg = fmt::format("Failed to write transfer metadata to file: {}",
-                                          metadata_file_path.string());
-            // ofs.close(); // Stream destructor will close it on return
-            spdlog::error(msg);
-            TransferResult result_to_return;
-            result_to_return.success = false;
-            result_to_return.error_message = msg;
-            result_to_return.transfer_id = transfer_id;
-            result_to_return.end_time = std::chrono::system_clock::now();
-            co_return result_to_return;
-        }
-
-        ofs.close();      // Explicitly close the file
-        if (ofs.fail()) { // Check for errors during close (e.g., flush error)
-            std::string msg = fmt::format("Error closing metadata file {}.",
-                                          metadata_file_path.string());
-            spdlog::error(msg);
-            TransferResult result_to_return;
-            result_to_return.success = false;
-            result_to_return.error_message = msg;
-            result_to_return.transfer_id = transfer_id;
-            result_to_return.end_time = std::chrono::system_clock::now();
-            co_return result_to_return;
-        }
-        // If successful, execution continues past the try-catch block.
-    } catch (const nlohmann::json::exception& je) {
-        std::string msg = fmt::format("JSON error while saving transfer metadata for ID {}: {}",
-                                      transfer_id,
-                                      je.what());
-        spdlog::error(msg);
-        TransferResult result_to_return;
-        result_to_return.success = false;
-        result_to_return.error_message = msg;
-        result_to_return.transfer_id = transfer_id;
-        result_to_return.end_time = std::chrono::system_clock::now();
-        co_return result_to_return;
-    } catch (const std::filesystem::filesystem_error& fse) {
-        std::string msg
-            = fmt::format("Filesystem error while saving transfer metadata for ID {}: {}",
-                          transfer_id,
-                          fse.what());
-        spdlog::error(msg);
-        TransferResult result_to_return;
-        result_to_return.success = false;
-        result_to_return.error_message = msg;
-        result_to_return.transfer_id = transfer_id;
-        result_to_return.end_time = std::chrono::system_clock::now();
-        co_return result_to_return;
-    } catch (const std::exception&
-                 e) { // Keep original generic catch, but with a slightly more generic message
-        std::string msg
-            = fmt::format("Generic exception while saving transfer metadata for ID {}: {}",
-                          transfer_id,
-                          e.what());
-        spdlog::error(msg);
-        TransferResult result_to_return;
-        result_to_return.success = false;
-        result_to_return.error_message = msg;
-        result_to_return.transfer_id = transfer_id;
-        result_to_return.end_time = std::chrono::system_clock::now();
+    if (!proceed_with_transfer) {
         co_return result_to_return;
     }
 
@@ -354,11 +344,11 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
     { // 新增作用域，用于管理 SendRequest 及其相关临时对象的生命周期
         lansend::models::FileMetadataRequest local_file_meta_req;
         local_file_meta_req.id = std::to_string(transfer_id);
-        local_file_meta_req.file_name = metadata.file_name; // 来自先前创建的 TransferMetadata
-        local_file_meta_req.size = metadata.file_size;
-        local_file_meta_req.file_type = metadata.file_type;
-        if (metadata.file_hash.has_value()) {
-            local_file_meta_req.file_hash = metadata.file_hash.value();
+        local_file_meta_req.file_name = extracted_metadata_filename; // 来自先前创建的 TransferMetadata
+        local_file_meta_req.size = file_size;
+        local_file_meta_req.file_type = file_type;
+        if (calculated_file_hash.has_value()) {
+            local_file_meta_req.file_hash = calculated_file_hash.value();
         }
 
         lansend::models::DeviceInfo local_own_device_info;
@@ -385,10 +375,8 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                       transfer_id);
         active_transfers_[transfer_id].status = TransferStatus::Failed;
         active_transfers_[transfer_id].error_message = "Target IP address is missing.";
-        TransferResult result_to_return;
         result_to_return.success = false;
         result_to_return.error_message = "Target IP address is missing.";
-        result_to_return.transfer_id = transfer_id;
         result_to_return.end_time = std::chrono::system_clock::now();
         co_return result_to_return;
     }
@@ -415,48 +403,51 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
     spdlog::info("Sending transfer request for ID {} to URL: {} (File: '{}', Size: {} bytes)",
                  transfer_id,
                  url,
-                 metadata.file_name,
-                 metadata.file_size);
+                 extracted_metadata_filename,
+                 file_size);
     active_transfers_[transfer_id].status
         = TransferStatus::InProgress; // Update status before network call
 
-    try {
-        auto response = co_await http_client_.post(url,
-                                                   payload_str, // Use the serialized string
-                                                   {{"Content-Type",
-                                                     "application/json; charset=utf-8"}});
+    TransferResult final_result_from_network_op;            // 用于存储网络操作的结果
+    final_result_from_network_op.transfer_id = transfer_id; // transfer_id 是确定的
 
-        if (response.status_code == 200) {
-            spdlog::info("Target {} accepted transfer request for ID {}. Response body: {}",
-                         target.device_id,
-                         transfer_id,
-                         response.body);
-            // The transfer is now properly in progress from a network perspective.
-            // Next step would be to send actual file data based on response or protocol.
-            TransferResult result_to_return;
-            result_to_return.success = true;
-            result_to_return.error_message = "Transfer request sent successfully to target.";
-            result_to_return.transfer_id = transfer_id;
-            result_to_return.end_time = std::chrono::system_clock::now();
-            co_return result_to_return;
-        } else {
-            std::string error_msg = fmt::format("Target rejected request (HTTP {}): {}",
-                                                response.status_code,
-                                                response.body);
-            spdlog::error("Failed to send transfer request for ID {} to {}. Status: {}, Body: {}",
-                          transfer_id,
-                          url,
-                          response.status_code,
-                          response.body);
-            active_transfers_[transfer_id].status = TransferStatus::Failed;
-            active_transfers_[transfer_id].error_message = error_msg;
-            TransferResult result_to_return;
-            result_to_return.success = false;
-            result_to_return.error_message = error_msg;
-            result_to_return.transfer_id = transfer_id;
-            result_to_return.end_time = std::chrono::system_clock::now();
-            co_return result_to_return;
+    try {
+        // 为 HTTP response 对象创建一个独立的作用域
+        {
+            auto response = co_await http_client_.post(url,
+                                                       payload_str,
+                                                       {{"Content-Type",
+                                                         "application/json; charset=utf-8"}});
+
+            if (response.status_code == 200) {
+                spdlog::info("Target {} accepted transfer request for ID {}. Response body: {}",
+                             target.device_id,
+                             transfer_id,
+                             response.body);
+                // 更新 active_transfers_ 状态（如果需要，当前已是 InProgress）
+                final_result_from_network_op.success = true;
+                final_result_from_network_op.error_message
+                    = "Transfer request sent successfully to target.";
+            } else {
+                std::string error_msg = fmt::format("Target rejected request (HTTP {}): {}",
+                                                    response.status_code,
+                                                    response.body);
+                spdlog::error(
+                    "Failed to send transfer request for ID {} to {}. Status: {}, Body: {}",
+                    transfer_id,
+                    url,
+                    response.status_code,
+                    response.body);
+                active_transfers_[transfer_id].status = TransferStatus::Failed; // 根据错误更新状态
+                active_transfers_[transfer_id].error_message = error_msg;
+                final_result_from_network_op.success = false;
+                final_result_from_network_op.error_message = error_msg;
+            }
+            // response 对象在此作用域结束时析构
         }
+
+        final_result_from_network_op.end_time = std::chrono::system_clock::now();
+        co_return final_result_from_network_op;
 
     } catch (const std::exception& e) {
         std::string error_msg = fmt::format("Network exception: {}", e.what());
@@ -464,25 +455,28 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                       transfer_id,
                       e.what());
         active_transfers_[transfer_id].status = TransferStatus::Failed;
-        active_transfers_[transfer_id].error_message = e.what();
-        TransferResult result_to_return;
-        result_to_return.success = false;
-        result_to_return.error_message = error_msg;
-        result_to_return.transfer_id = transfer_id;
-        result_to_return.end_time = std::chrono::system_clock::now();
-        co_return result_to_return;
+        active_transfers_[transfer_id].error_message = e.what(); // 记录原始异常信息
+
+        // 为异常路径创建一个新的 TransferResult
+        TransferResult result_to_return_on_exception;
+        result_to_return_on_exception.success = false;
+        result_to_return_on_exception.error_message = error_msg; // 返回格式化后的信息
+        result_to_return_on_exception.transfer_id = transfer_id;
+        result_to_return_on_exception.end_time = std::chrono::system_clock::now();
+        co_return result_to_return_on_exception;
     } catch (...) {
         std::string error_msg = "Unknown network error during transfer initiation.";
         spdlog::error("Unknown network exception while sending transfer request for ID {}",
                       transfer_id);
         active_transfers_[transfer_id].status = TransferStatus::Failed;
         active_transfers_[transfer_id].error_message = error_msg;
-        TransferResult result_to_return;
-        result_to_return.success = false;
-        result_to_return.error_message = error_msg;
-        result_to_return.transfer_id = transfer_id;
-        result_to_return.end_time = std::chrono::system_clock::now();
-        co_return result_to_return;
+
+        TransferResult result_to_return_on_unknown_exception;
+        result_to_return_on_unknown_exception.success = false;
+        result_to_return_on_unknown_exception.error_message = error_msg;
+        result_to_return_on_unknown_exception.transfer_id = transfer_id;
+        result_to_return_on_unknown_exception.end_time = std::chrono::system_clock::now();
+        co_return result_to_return_on_unknown_exception;
     }
 }
 
