@@ -143,7 +143,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
         std::string msg = fmt::format("File not found or is not a regular file: {}",
                                       filepath.string());
         spdlog::error(msg);
-        co_return TransferResult{false, msg, 0, std::chrono::system_clock::now()};
+        TransferResult result_to_return;
+        result_to_return.success = false;
+        result_to_return.error_message = msg;
+        result_to_return.transfer_id = 0;
+        result_to_return.end_time = std::chrono::system_clock::now();
+        co_return result_to_return;
     }
 
     // 2. Get file size
@@ -228,7 +233,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                                           metadata_dir.string(),
                                           ec.message());
             spdlog::error(msg);
-            co_return TransferResult{false, msg, transfer_id, std::chrono::system_clock::now()};
+            TransferResult result_to_return;
+            result_to_return.success = false;
+            result_to_return.error_message = msg;
+            result_to_return.transfer_id = transfer_id;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            co_return result_to_return;
         }
 
         std::filesystem::path metadata_file_path = metadata_dir
@@ -244,7 +254,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
             std::string msg = fmt::format("Failed to open metadata file for writing: {}",
                                           metadata_file_path.string());
             spdlog::error(msg);
-            co_return TransferResult{false, msg, transfer_id, std::chrono::system_clock::now()};
+            TransferResult result_to_return;
+            result_to_return.success = false;
+            result_to_return.error_message = msg;
+            result_to_return.transfer_id = transfer_id;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            co_return result_to_return;
         }
 
         ofs << metadata_json.dump(
@@ -255,7 +270,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                                           metadata_file_path.string());
             // ofs.close(); // Stream destructor will close it on return
             spdlog::error(msg);
-            co_return TransferResult{false, msg, transfer_id, std::chrono::system_clock::now()};
+            TransferResult result_to_return;
+            result_to_return.success = false;
+            result_to_return.error_message = msg;
+            result_to_return.transfer_id = transfer_id;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            co_return result_to_return;
         }
 
         ofs.close();      // Explicitly close the file
@@ -263,7 +283,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
             std::string msg = fmt::format("Error closing metadata file {}.",
                                           metadata_file_path.string());
             spdlog::error(msg);
-            co_return TransferResult{false, msg, transfer_id, std::chrono::system_clock::now()};
+            TransferResult result_to_return;
+            result_to_return.success = false;
+            result_to_return.error_message = msg;
+            result_to_return.transfer_id = transfer_id;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            co_return result_to_return;
         }
         // If successful, execution continues past the try-catch block.
     } catch (const nlohmann::json::exception& je) {
@@ -271,14 +296,24 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                                       transfer_id,
                                       je.what());
         spdlog::error(msg);
-        co_return TransferResult{false, msg, transfer_id, std::chrono::system_clock::now()};
+        TransferResult result_to_return;
+        result_to_return.success = false;
+        result_to_return.error_message = msg;
+        result_to_return.transfer_id = transfer_id;
+        result_to_return.end_time = std::chrono::system_clock::now();
+        co_return result_to_return;
     } catch (const std::filesystem::filesystem_error& fse) {
         std::string msg
             = fmt::format("Filesystem error while saving transfer metadata for ID {}: {}",
                           transfer_id,
                           fse.what());
         spdlog::error(msg);
-        co_return TransferResult{false, msg, transfer_id, std::chrono::system_clock::now()};
+        TransferResult result_to_return;
+        result_to_return.success = false;
+        result_to_return.error_message = msg;
+        result_to_return.transfer_id = transfer_id;
+        result_to_return.end_time = std::chrono::system_clock::now();
+        co_return result_to_return;
     } catch (const std::exception&
                  e) { // Keep original generic catch, but with a slightly more generic message
         std::string msg
@@ -286,7 +321,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                           transfer_id,
                           e.what());
         spdlog::error(msg);
-        co_return TransferResult{false, msg, transfer_id, std::chrono::system_clock::now()};
+        TransferResult result_to_return;
+        result_to_return.success = false;
+        result_to_return.error_message = msg;
+        result_to_return.transfer_id = transfer_id;
+        result_to_return.end_time = std::chrono::system_clock::now();
+        co_return result_to_return;
     }
 
     // 6. Add to active transfers
@@ -346,10 +386,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                       transfer_id);
         active_transfers_[transfer_id].status = TransferStatus::Failed;
         active_transfers_[transfer_id].error_message = "Target IP address is missing.";
-        co_return TransferResult{false,
-                                 "Target IP address is missing.",
-                                 transfer_id,
-                                 std::chrono::system_clock::now()};
+        TransferResult result_to_return;
+        result_to_return.success = false;
+        result_to_return.error_message = "Target IP address is missing.";
+        result_to_return.transfer_id = transfer_id;
+        result_to_return.end_time = std::chrono::system_clock::now();
+        co_return result_to_return;
     }
 
     std::string scheme = "http";
@@ -392,10 +434,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                          response.body);
             // The transfer is now properly in progress from a network perspective.
             // Next step would be to send actual file data based on response or protocol.
-            co_return TransferResult{true,
-                                     "Transfer request sent successfully to target.",
-                                     transfer_id,
-                                     std::chrono::system_clock::now()};
+            TransferResult result_to_return;
+            result_to_return.success = true;
+            result_to_return.error_message = "Transfer request sent successfully to target.";
+            result_to_return.transfer_id = transfer_id;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            co_return result_to_return;
         } else {
             std::string error_msg = fmt::format("Target rejected request (HTTP {}): {}",
                                                 response.status_code,
@@ -407,10 +451,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                           response.body);
             active_transfers_[transfer_id].status = TransferStatus::Failed;
             active_transfers_[transfer_id].error_message = error_msg;
-            co_return TransferResult{false,
-                                     error_msg,
-                                     transfer_id,
-                                     std::chrono::system_clock::now()};
+            TransferResult result_to_return;
+            result_to_return.success = false;
+            result_to_return.error_message = error_msg;
+            result_to_return.transfer_id = transfer_id;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            co_return result_to_return;
         }
 
     } catch (const std::exception& e) {
@@ -420,14 +466,24 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
                       e.what());
         active_transfers_[transfer_id].status = TransferStatus::Failed;
         active_transfers_[transfer_id].error_message = e.what();
-        co_return TransferResult{false, error_msg, transfer_id, std::chrono::system_clock::now()};
+        TransferResult result_to_return;
+        result_to_return.success = false;
+        result_to_return.error_message = error_msg;
+        result_to_return.transfer_id = transfer_id;
+        result_to_return.end_time = std::chrono::system_clock::now();
+        co_return result_to_return;
     } catch (...) {
         std::string error_msg = "Unknown network error during transfer initiation.";
         spdlog::error("Unknown network exception while sending transfer request for ID {}",
                       transfer_id);
         active_transfers_[transfer_id].status = TransferStatus::Failed;
         active_transfers_[transfer_id].error_message = error_msg;
-        co_return TransferResult{false, error_msg, transfer_id, std::chrono::system_clock::now()};
+        TransferResult result_to_return;
+        result_to_return.success = false;
+        result_to_return.error_message = error_msg;
+        result_to_return.transfer_id = transfer_id;
+        result_to_return.end_time = std::chrono::system_clock::now();
+        co_return result_to_return;
     }
 }
 
