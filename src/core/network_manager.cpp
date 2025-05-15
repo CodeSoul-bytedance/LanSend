@@ -1,5 +1,4 @@
 #include "network_manager.hpp"
-#include "../security/ssl_context.hpp"
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <filesystem>
@@ -11,11 +10,23 @@ NetworkManager::NetworkManager(boost::asio::io_context& ioc, Config& config)
     : io_context_(ioc)
     , config_(&config)
     , cert_manager_(std::make_unique<CertificateManager>(std::filesystem::path("certificates")))
-    , ssl_context_(SSLContext::server_context(cert_manager_->security_context().certificate_pem,
-                                              cert_manager_->security_context().private_key_pem))
+    , ssl_context_(boost::asio::ssl::context::tlsv12_server)
     , server_(std::make_unique<lansend::api::HttpServer>(ioc, ssl_context_))
     , discovery_manager_(std::make_unique<DiscoveryManager>(ioc))
     , transfer_manager_(std::make_unique<TransferManager>(ioc, lansend::settings)) {
+    // 配置SSL上下文
+    ssl_context_.set_options(
+        boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2
+        | boost::asio::ssl::context::no_sslv3 | boost::asio::ssl::context::single_dh_use);
+
+    // 使用证书和私钥
+    ssl_context_.use_certificate(boost::asio::buffer(
+                                     cert_manager_->security_context().certificate_pem),
+                                 boost::asio::ssl::context::pem);
+    ssl_context_.use_private_key(boost::asio::buffer(
+                                     cert_manager_->security_context().private_key_pem),
+                                 boost::asio::ssl::context::pem);
+
     // Initialize callbacks to nullptr
     device_found_callback_ = nullptr;
     transfer_progress_callback_ = nullptr;

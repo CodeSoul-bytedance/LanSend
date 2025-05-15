@@ -2,6 +2,12 @@
 
 #include <filesystem>
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <combaseapi.h>
+#include <knownfolders.h>
+#include <shlobj_core.h>
+#endif
+
 namespace lansend {
 namespace path {
 
@@ -26,7 +32,7 @@ inline const std::filesystem::path kConfigDir =
     std::filesystem::path(std::getenv("HOME")) / ".config" / "CodeSoul" / "LanSend";
 #endif
 
-inline const std::filesystem::path kSystemDownloadDir = [] {
+inline const std::filesystem::path kSystemDownloadDir = []() -> std::filesystem::path {
 #if defined(_WIN32) || defined(_WIN64)
     PWSTR path = nullptr;
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Downloads, 0, nullptr, &path))) {
