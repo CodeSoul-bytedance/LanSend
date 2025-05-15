@@ -29,13 +29,6 @@ struct TransferResult {
     std::chrono::system_clock::time_point end_time;
 };
 
-// struct TransferProgress {
-//     uint64_t transfer_id;
-//     uint64_t total_size;
-//     uint64_t transferred_size;
-//     double progress; // 0.0 to 1.0
-// };
-
 struct TransferState {
     uint64_t id;
     std::string source_device;

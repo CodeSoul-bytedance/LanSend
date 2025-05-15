@@ -1,5 +1,7 @@
 // Implemented based on PLAN.md, ARCHITECTURE.md and provided memory.
 // Addressing lint errors from previous steps where possible.
+// Implemented based on PLAN.md, ARCHITECTURE.md and provided memory.
+// Addressing lint errors from previous steps where possible.
 #include "transfer_manager.hpp"
 #include "../models/device_info.hpp"
 #include "../models/transfer_metadata.hpp"
