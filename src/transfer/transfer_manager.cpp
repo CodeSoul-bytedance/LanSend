@@ -333,8 +333,12 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
     send_payload.info = own_device_info;
     send_payload.files[file_meta_req.id] = file_meta_req;
 
-    nlohmann::json json_payload_obj
-        = send_payload; // Relies on to_json for SendRequest and FileMetadataRequest being defined
+    std::string payload_str; // Declare payload_str here
+    {
+        // Create a smaller scope for json_payload_obj
+        nlohmann::json json_payload_obj = send_payload;
+        payload_str = json_payload_obj.dump(); // Serialize to string within this scope
+    } // json_payload_obj is destructed here
 
     if (target.ip_address.empty()) {
         spdlog::error("Target IP address for device_id '{}' is empty. Cannot initiate transfer {}.",
@@ -376,10 +380,10 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
         = TransferStatus::InProgress; // Update status before network call
 
     try {
-        auto response = co_await http_client_
-                            .post(url,
-                                  json_payload_obj.dump(), // Serialize JSON to string
-                                  {{"Content-Type", "application/json; charset=utf-8"}});
+        auto response = co_await http_client_.post(url,
+                                                   payload_str, // Use the serialized string
+                                                   {{"Content-Type",
+                                                     "application/json; charset=utf-8"}});
 
         if (response.status_code == 200) {
             spdlog::info("Target {} accepted transfer request for ID {}. Response body: {}",
