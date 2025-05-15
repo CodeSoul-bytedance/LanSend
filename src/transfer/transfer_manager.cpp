@@ -350,35 +350,34 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
     // 7. Initiate actual network communication
     spdlog::debug("Preparing SendRequest for transfer_id: {}", transfer_id);
 
-    lansend::models::FileMetadataRequest file_meta_req;
-    file_meta_req.id = std::to_string(transfer_id);
-    file_meta_req.file_name = metadata.file_name; // From TransferMetadata created earlier
-    file_meta_req.size = metadata.file_size;
-    file_meta_req.file_type = metadata.file_type;
-    if (metadata.file_hash.has_value()) {
-        file_meta_req.file_hash = metadata.file_hash.value();
-    }
+    std::string payload_str;
+    { // 新增作用域，用于管理 SendRequest 及其相关临时对象的生命周期
+        lansend::models::FileMetadataRequest local_file_meta_req;
+        local_file_meta_req.id = std::to_string(transfer_id);
+        local_file_meta_req.file_name = metadata.file_name; // 来自先前创建的 TransferMetadata
+        local_file_meta_req.size = metadata.file_size;
+        local_file_meta_req.file_type = metadata.file_type;
+        if (metadata.file_hash.has_value()) {
+            local_file_meta_req.file_hash = metadata.file_hash.value();
+        }
 
-    lansend::models::SendRequest send_payload;
-    // 手动创建 DeviceInfo 对象，使用 config_ 中的设备信息
-    lansend::models::DeviceInfo own_device_info;
-    own_device_info.device_id = config_.device_id;
-    own_device_info.alias = config_.alias;
-    own_device_info.port = config_.port;
-    // TODO: 设置适当的设备型号和IP地址
-    own_device_info.device_model = "Windows"; // 或者适当的设备型号
-    own_device_info.ip_address = "";          // 这里可能需要获取本机IP
-    own_device_info.https = config_.https;    // 根据实际情况设置
+        lansend::models::DeviceInfo local_own_device_info;
+        local_own_device_info.device_id = config_.device_id;
+        local_own_device_info.alias = config_.alias;
+        local_own_device_info.port = config_.port;
+        // TODO: 设置适当的设备型号和IP地址
+        local_own_device_info.device_model = "Windows"; // 或者适当的设备型号
+        local_own_device_info.ip_address = "";          // 这里可能需要获取本机IP (保持原样)
+        local_own_device_info.https = config_.https;    // 根据实际情况设置
 
-    send_payload.info = own_device_info;
-    send_payload.files[file_meta_req.id] = file_meta_req;
+        lansend::models::SendRequest local_send_payload;
+        local_send_payload.info = local_own_device_info;
+        local_send_payload.files[local_file_meta_req.id] = local_file_meta_req;
 
-    std::string payload_str; // Declare payload_str here
-    {
-        // Create a smaller scope for json_payload_obj
-        nlohmann::json json_payload_obj = send_payload;
-        payload_str = json_payload_obj.dump(); // Serialize to string within this scope
-    } // json_payload_obj is destructed here
+        // 创建一个更小范围的 nlohmann::json 对象
+        nlohmann::json json_payload_obj = local_send_payload;
+        payload_str = json_payload_obj.dump(); // 在此作用域内序列化为字符串
+    } // local_file_meta_req, local_own_device_info, local_send_payload, 和 json_payload_obj 在此被销毁
 
     if (target.ip_address.empty()) {
         spdlog::error("Target IP address for device_id '{}' is empty. Cannot initiate transfer {}.",
