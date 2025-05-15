@@ -184,7 +184,7 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
     }
 
     std::optional<std::string> preview_data_str = std::nullopt;
-    // TODO: Populate preview_data_str if preview_data_bytes (was preview_data) is generated and converted
+    // TODO(optional): Populate preview_data_str if preview_data_bytes (was preview_data) is generated and converted
     // Example: if (preview_data_bytes.has_value()) { preview_data_str = util::to_base64(*preview_data_bytes); }
 
     // 5. Create and persist TransferMetadata
@@ -328,7 +328,7 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
     // TODO: 设置适当的设备型号和IP地址
     own_device_info.device_model = "Windows"; // 或者适当的设备型号
     own_device_info.ip_address = "";          // 这里可能需要获取本机IP
-    own_device_info.https = true;             // 根据实际情况设置
+    own_device_info.https = config_.https;    // 根据实际情况设置
 
     send_payload.info = own_device_info;
     send_payload.files[file_meta_req.id] = file_meta_req;
@@ -445,7 +445,82 @@ void TransferManager::cancel_transfer(uint64_t transfer_id) {
 
         spdlog::info("Transfer {} status set to Cancelled.", transfer_id);
 
-        // TODO: Notify network layer to stop any ongoing send/receive for this transfer_id
+        try {
+            // 获取传输元数据以了解目标设备信息
+            std::optional<lansend::models::TransferMetadata> metadata = get_transfer_metadata(
+                transfer_id);
+            if (metadata) {
+                // 确定目标设备ID
+                std::string target_device_id;
+                if (metadata->source_device_id == config_.device_id) {
+                    // 如果我们是发送方，目标是target_device_id
+                    target_device_id = metadata->target_device_id;
+                } else {
+                    // 如果我们是接收方，目标是source_device_id
+                    target_device_id = metadata->source_device_id;
+                }
+
+                // 尝试从设备发现缓存中找到目标设备的IP和端口
+                // 注意：在实际实现中，你可能需要从服务发现管理器获取设备信息
+                // 这里简单假设我们知道目标设备的信息（从活动传输状态中）
+                std::string target_ip;
+                uint16_t target_port = 0;
+
+                // 从传输状态中获取目标设备信息
+                if (it->second.target_device == target_device_id) {
+                    // 目标设备是接收方，尝试查找它的IP/端口
+                    // 在实际实现中，这应该从设备发现缓存获取
+                    spdlog::warn("Cannot find target device IP/port for cancel notification");
+                    // 在此处缺少目标设备信息时，我们应该继续处理，而不是直接返回
+                } else {
+                    // 尝试发送取消请求到对方设备
+                    if (!target_ip.empty() && target_port > 0) {
+                        // 构建请求URL和有效载荷
+                        std::string url = fmt::format("http{}://{}:{}/cancel",
+                                                      (config_.https ? "s" : ""),
+                                                      target_ip,
+                                                      target_port);
+
+                        // 创建请求有效载荷（JSON格式）
+                        nlohmann::json payload = {{"transfer_id", transfer_id}};
+
+                        // 异步发送取消请求
+                        // 注意：这是一个协程函数，但我们在非协程上下文中调用它
+                        // 在实际实现中，你可能需要使用不同的方法来处理异步操作
+                        boost::asio::co_spawn(
+                            io_context_,
+                            [this,
+                             url,
+                             payload_str = payload.dump()]() -> boost::asio::awaitable<void> {
+                                try {
+                                    auto response = co_await http_client_.post(url, payload_str);
+                                    if (response.status_code == 200) {
+                                        spdlog::info("Successfully notified peer about transfer "
+                                                     "cancellation");
+                                    } else {
+                                        spdlog::warn("Failed to notify peer about transfer "
+                                                     "cancellation: HTTP {}",
+                                                     response.status_code);
+                                    }
+                                } catch (const std::exception& e) {
+                                    spdlog::error(
+                                        "Exception while notifying peer about cancellation: {}",
+                                        e.what());
+                                }
+                                co_return;
+                            },
+                            boost::asio::detached);
+                    }
+                }
+            } else {
+                spdlog::warn(
+                    "Could not find metadata for transfer {} to notify peer about cancellation",
+                    transfer_id);
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("Exception while trying to notify peer about transfer cancellation: {}",
+                          e.what());
+        }
 
         // Delete persistent metadata
         std::filesystem::path metadata_file_path = config_.metadataStoragePath

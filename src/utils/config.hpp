@@ -52,6 +52,7 @@ struct Settings {
     std::filesystem::path saveDir; // Directory to save files from other devices
     std::filesystem::path metadataStoragePath;
     uint64_t chunkSize;
+    bool https = true; // Whether to use HTTPS instead of HTTP
 };
 
 inline Settings settings;
