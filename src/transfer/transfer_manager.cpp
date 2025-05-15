@@ -199,119 +199,113 @@ boost::asio::awaitable<TransferResult> TransferManager::start_transfer(
     std::string extracted_metadata_filename;
 
     if (proceed_with_transfer) {
-        // --- BEGIN: Scoped block for TransferMetadata and its persistence ---
-        {
-            lansend::models::TransferMetadata metadata_obj_scoped;
-            metadata_obj_scoped.transfer_id = transfer_id;
-            metadata_obj_scoped.file_name = filepath.filename().string();
-            metadata_obj_scoped.file_size = file_size;
-            metadata_obj_scoped.file_hash = calculated_file_hash;
-            metadata_obj_scoped.file_type = file_type;
-            metadata_obj_scoped.preview = preview_data_str;
-            metadata_obj_scoped.source_device_id = config_.device_id;
-            metadata_obj_scoped.target_device_id = target.device_id;
-            metadata_obj_scoped.status = lansend::models::TransferStatus::PENDING;
-            metadata_obj_scoped.chunk_size = config_.chunkSize;
-            metadata_obj_scoped.total_chunks = (file_size > 0) ? (file_size + config_.chunkSize - 1)
-                                                                     / config_.chunkSize
-                                                               : 0;
-            metadata_obj_scoped.local_filepath = filepath.string();
-            metadata_obj_scoped.created_at = std::chrono::system_clock::now();
-            metadata_obj_scoped.updated_at = std::chrono::system_clock::now();
+        lansend::models::TransferMetadata metadata_obj_scoped;
+        metadata_obj_scoped.transfer_id = transfer_id;
+        metadata_obj_scoped.file_name = filepath.filename().string();
+        metadata_obj_scoped.file_size = file_size;
+        metadata_obj_scoped.file_hash = calculated_file_hash;
+        metadata_obj_scoped.file_type = file_type;
+        metadata_obj_scoped.preview = preview_data_str;
+        metadata_obj_scoped.source_device_id = config_.device_id;
+        metadata_obj_scoped.target_device_id = target.device_id;
+        metadata_obj_scoped.status = lansend::models::TransferStatus::PENDING;
+        metadata_obj_scoped.chunk_size = config_.chunkSize;
+        metadata_obj_scoped.total_chunks = (file_size > 0) ? (file_size + config_.chunkSize - 1)
+                                                                 / config_.chunkSize
+                                                           : 0;
+        metadata_obj_scoped.local_filepath = filepath.string();
+        metadata_obj_scoped.created_at = std::chrono::system_clock::now();
+        metadata_obj_scoped.updated_at = std::chrono::system_clock::now();
 
-            if (metadata_obj_scoped.total_chunks > 0) {
-                metadata_obj_scoped.chunks.reserve(metadata_obj_scoped.total_chunks);
-                for (uint64_t i = 0; i < metadata_obj_scoped.total_chunks; ++i) {
-                    metadata_obj_scoped.chunks.push_back({i, std::nullopt, false});
-                }
+        if (metadata_obj_scoped.total_chunks > 0) {
+            metadata_obj_scoped.chunks.reserve(metadata_obj_scoped.total_chunks);
+            for (uint64_t i = 0; i < metadata_obj_scoped.total_chunks; ++i) {
+                metadata_obj_scoped.chunks.push_back({i, std::nullopt, false});
             }
-            if (metadata_obj_scoped.total_chunks == 0 && file_size == 0) {
-                metadata_obj_scoped.status = lansend::models::TransferStatus::COMPLETED;
+        }
+        if (metadata_obj_scoped.total_chunks == 0 && file_size == 0) {
+            metadata_obj_scoped.status = lansend::models::TransferStatus::COMPLETED;
+        }
+
+        // Extract necessary data before metadata_obj_scoped is destructed
+        extracted_metadata_filename = metadata_obj_scoped.file_name;
+
+        // Persist metadata_obj_scoped
+        try {
+            std::filesystem::path metadata_dir = config_.metadataStoragePath;
+            std::error_code ec;
+            std::filesystem::create_directories(metadata_dir, ec);
+            if (ec) {
+                std::string msg = fmt::format("Failed to create metadata directory {}: {}",
+                                              metadata_dir.string(),
+                                              ec.message());
+                spdlog::error(msg);
+                result_to_return.error_message = msg;
+                result_to_return.end_time = std::chrono::system_clock::now();
+                proceed_with_transfer = false;
             }
 
-            // Extract necessary data before metadata_obj_scoped is destructed
-            extracted_metadata_filename = metadata_obj_scoped.file_name;
+            if (proceed_with_transfer) {
+                std::filesystem::path metadata_file_path = metadata_dir
+                                                           / (std::to_string(transfer_id) + ".meta");
+                nlohmann::json metadata_json_for_persistence = metadata_obj_scoped;
+                std::ofstream ofs_for_persistence(metadata_file_path, std::ios::binary);
 
-            // Persist metadata_obj_scoped
-            try {
-                std::filesystem::path metadata_dir = config_.metadataStoragePath;
-                std::error_code ec;
-                std::filesystem::create_directories(metadata_dir, ec);
-                if (ec) {
-                    std::string msg = fmt::format("Failed to create metadata directory {}: {}",
-                                                  metadata_dir.string(),
-                                                  ec.message());
+                if (!ofs_for_persistence) {
+                    std::string msg = fmt::format("Failed to open metadata file for writing: {}",
+                                                  metadata_file_path.string());
                     spdlog::error(msg);
                     result_to_return.error_message = msg;
                     result_to_return.end_time = std::chrono::system_clock::now();
                     proceed_with_transfer = false;
-                }
-
-                if (proceed_with_transfer) {
-                    std::filesystem::path metadata_file_path = metadata_dir
-                                                               / (std::to_string(transfer_id)
-                                                                  + ".meta");
-                    nlohmann::json metadata_json_for_persistence = metadata_obj_scoped;
-                    std::ofstream ofs_for_persistence(metadata_file_path, std::ios::binary);
-
-                    if (!ofs_for_persistence) {
+                } else {
+                    ofs_for_persistence << metadata_json_for_persistence.dump(4);
+                    if (ofs_for_persistence.fail()) {
                         std::string msg
-                            = fmt::format("Failed to open metadata file for writing: {}",
+                            = fmt::format("Failed to write transfer metadata to file: {}",
                                           metadata_file_path.string());
                         spdlog::error(msg);
                         result_to_return.error_message = msg;
                         result_to_return.end_time = std::chrono::system_clock::now();
                         proceed_with_transfer = false;
-                    } else {
-                        ofs_for_persistence << metadata_json_for_persistence.dump(4);
-                        if (ofs_for_persistence.fail()) {
-                            std::string msg
-                                = fmt::format("Failed to write transfer metadata to file: {}",
-                                              metadata_file_path.string());
-                            spdlog::error(msg);
-                            result_to_return.error_message = msg;
-                            result_to_return.end_time = std::chrono::system_clock::now();
-                            proceed_with_transfer = false;
-                        }
-                        ofs_for_persistence.close();
-                        if (ofs_for_persistence.fail()) {
-                            std::string msg = fmt::format("Error closing metadata file {}.",
-                                                          metadata_file_path.string());
-                            spdlog::error(msg);
-                            result_to_return.error_message = msg;
-                            result_to_return.end_time = std::chrono::system_clock::now();
-                            proceed_with_transfer = false;
-                        }
+                    }
+                    ofs_for_persistence.close();
+                    if (ofs_for_persistence.fail()) {
+                        std::string msg = fmt::format("Error closing metadata file {}.",
+                                                      metadata_file_path.string());
+                        spdlog::error(msg);
+                        result_to_return.error_message = msg;
+                        result_to_return.end_time = std::chrono::system_clock::now();
+                        proceed_with_transfer = false;
                     }
                 }
-            } catch (const nlohmann::json::exception& je) {
-                std::string msg
-                    = fmt::format("JSON error while saving transfer metadata for ID {}: {}",
-                                  transfer_id,
-                                  je.what());
-                spdlog::error(msg);
-                result_to_return.error_message = msg;
-                result_to_return.end_time = std::chrono::system_clock::now();
-                proceed_with_transfer = false;
-            } catch (const std::filesystem::filesystem_error& fse) {
-                std::string msg
-                    = fmt::format("Filesystem error while saving transfer metadata for ID {}: {}",
-                                  transfer_id,
-                                  fse.what());
-                spdlog::error(msg);
-                result_to_return.error_message = msg;
-                result_to_return.end_time = std::chrono::system_clock::now();
-                proceed_with_transfer = false;
-            } catch (const std::exception& e) {
-                std::string msg
-                    = fmt::format("Generic exception while saving transfer metadata for ID {}: {}",
-                                  transfer_id,
-                                  e.what());
-                spdlog::error(msg);
-                result_to_return.error_message = msg;
-                result_to_return.end_time = std::chrono::system_clock::now();
-                proceed_with_transfer = false;
             }
+        } catch (const nlohmann::json::exception& je) {
+            std::string msg = fmt::format("JSON error while saving transfer metadata for ID {}: {}",
+                                          transfer_id,
+                                          je.what());
+            spdlog::error(msg);
+            result_to_return.error_message = msg;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            proceed_with_transfer = false;
+        } catch (const std::filesystem::filesystem_error& fse) {
+            std::string msg
+                = fmt::format("Filesystem error while saving transfer metadata for ID {}: {}",
+                              transfer_id,
+                              fse.what());
+            spdlog::error(msg);
+            result_to_return.error_message = msg;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            proceed_with_transfer = false;
+        } catch (const std::exception& e) {
+            std::string msg
+                = fmt::format("Generic exception while saving transfer metadata for ID {}: {}",
+                              transfer_id,
+                              e.what());
+            spdlog::error(msg);
+            result_to_return.error_message = msg;
+            result_to_return.end_time = std::chrono::system_clock::now();
+            proceed_with_transfer = false;
         }
     }
 

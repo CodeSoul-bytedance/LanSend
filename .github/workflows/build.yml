@@ -99,10 +99,6 @@ jobs:
           $env:CLANGCC = "clang -arch $osxArch"
           $env:CLANGCXX = "clang++ -arch $osxArch"
         }
-        if ($rid.StartsWith('linux-')) {
-          # try to avoid ICEs
-          $additionalConfigureArgs += "-D CMAKE_CXX_FLAGS_RELEASE=-O0"
-        }
         if ($vcpkgTargetTriplet) {
           $additionalConfigureArgs += "-DVCPKG_TARGET_TRIPLET:STRING=$vcpkgTargetTriplet"
         }
