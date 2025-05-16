@@ -17,19 +17,24 @@
 using json = nlohmann::json;
 using namespace boost::asio;
 
+
+
 DiscoveryManager::DiscoveryManager(io_context& ioc)
-    : io_context_(ioc)
-    , broadcast_socket_(ioc)
-    , listen_socket_(ioc)
-    , broadcast_timer_(ioc)
-    , device_found_callback_([](const lansend::models::DeviceInfo& device) {
-        spdlog::info("Device found:{}", device.device_id);
-    })
-    , device_lost_callback_(
-          [](const std::string& device_id) { spdlog::info("Device lost:{}", device_id); }) {
-    device_id_ = generateDeviceId();
-    spdlog::info("discovery_manager created.");
-}
+    : io_context_(ioc),
+      broadcast_socket_(ioc),
+      listen_socket_(ioc),
+      broadcast_timer_(ioc),
+      cleanup_timer_(ioc), // 新增清理定时器
+      device_found_callback_([](const lansend::models::DeviceInfo& device) {
+          spdlog::info("Device found:{}",device.device_id);
+      }),
+      device_lost_callback_([](const std::string& device_id) {
+          spdlog::info("Device lost:{}",device_id);
+      }){
+        device_id_=generateDeviceId();
+        spdlog::info("discovery_manager created.");
+      }
+
 
 DiscoveryManager::~DiscoveryManager() {
     stop();
@@ -53,6 +58,8 @@ void DiscoveryManager::start(uint16_t port) {
         // 启动广播和监听协程
         co_spawn(io_context_, broadcaster(), detached);
         co_spawn(io_context_, listener(), detached);
+        // 启动清理协程
+        co_spawn(io_context_, cleanup_devices(), detached);
     } catch (const std::exception& e) {
         spdlog::error("Error starting DiscoveryManager: {}", e.what());
     }
@@ -69,6 +76,7 @@ void DiscoveryManager::stop() {
             spdlog::info("listen socket is closed");
         }
         broadcast_timer_.cancel();
+        cleanup_timer_.cancel();
         spdlog::info("broadcast timer is canceled");
     } catch (const std::exception& e) {
         spdlog::error("Error stopping DiscoveryManager: {}", e.what());
@@ -79,14 +87,14 @@ void DiscoveryManager::add_device(const lansend::models::DeviceInfo& device) {
     // std::lock_guard<std::mutex> lock(devices_mutex_);
     auto it = discovered_devices_.find(device.device_id);
     if (it == discovered_devices_.end()) {
-        discovered_devices_[device.device_id] = device;
+        discovered_devices_[device.device_id] = {device, std::chrono::system_clock::now()};
         if (device_found_callback_) {
             device_found_callback_(device);
         }
+    } 
+    else {
+        it->second.last_seen = std::chrono::system_clock::now();
     }
-    //else {
-    //     it->second.last_seen = std::chrono::system_clock::now();
-    // }
 }
 
 void DiscoveryManager::remove_device(const std::string& device_id) {
@@ -104,7 +112,7 @@ std::vector<lansend::models::DeviceInfo> DiscoveryManager::get_devices() const {
     // std::lock_guard<std::mutex> lock(devices_mutex_);
     std::vector<lansend::models::DeviceInfo> devices;
     for (const auto& pair : discovered_devices_) {
-        devices.push_back(pair.second);
+        devices.push_back(pair.second.device);
     }
     return devices;
 }
@@ -136,10 +144,10 @@ awaitable<void> DiscoveryManager::broadcaster() {
         std::string data = device_json.dump();
 
         while (broadcast_socket_.is_open()) {
-            spdlog::info("start to broadcast device info every 5 seconds...");
-            co_await broadcast_socket_.async_send_to(buffer(data),
-                                                     broadcast_endpoint,
-                                                     use_awaitable);
+
+            spdlog::info("start to broadcast device info every 3 seconds...");
+            co_await broadcast_socket_.async_send_to(buffer(data), broadcast_endpoint, use_awaitable);
+
             co_await broadcast_timer_.async_wait(use_awaitable);
             broadcast_timer_.expires_after(std::chrono::seconds(3)); // 每 3 秒广播一次
         }
@@ -194,3 +202,32 @@ awaitable<void> DiscoveryManager::listener() {
         spdlog::error("Error in listener: {}", e.what());
     }
 }
+
+awaitable<void> DiscoveryManager::cleanup_devices() {
+        try {
+            const auto timeout_duration = std::chrono::seconds(10); // 设备超时时间
+            const auto cleanup_interval = std::chrono::seconds(5); // 清理间隔
+
+            while (listen_socket_.is_open()) {
+                co_await cleanup_timer_.async_wait(use_awaitable);
+                cleanup_timer_.expires_after(cleanup_interval);
+
+                // std::lock_guard<std::mutex> lock(devices_mutex_);
+                auto now = std::chrono::system_clock::now();
+                for (auto it = discovered_devices_.begin(); it != discovered_devices_.end();) {
+                    if (now - it->second.last_seen > timeout_duration) {
+                        std::string device_id = it->first;
+                        it = discovered_devices_.erase(it);
+                        if (device_lost_callback_) {
+                            device_lost_callback_(device_id);
+                        }
+                    } else {
+                        ++it;
+                    }
+                }
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("Error in cleanup_devices: {}",e.what());
+        }
+    }
+
