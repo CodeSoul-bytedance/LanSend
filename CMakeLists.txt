@@ -4,11 +4,9 @@ project(lansend LANGUAGES CXX)
 option(BUILD_TESTING "Build the tests" ON)
 
 file(GLOB_RECURSE CXX_SOURCE
-    # src/*.cpp
-    # src/*.h
-    # src/*.hpp
-    src/discovery/*.cpp
-    src/discovery/*.hpp
+    src/*.cpp
+    src/*.h
+    src/*.hpp
 )
 
 set(CMAKE_CXX_STANDARD 23)
