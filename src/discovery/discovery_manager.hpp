@@ -64,7 +64,9 @@ private:
     // 协程任务
     boost::asio::awaitable<void> broadcaster();
     boost::asio::awaitable<void> listener();
+
     boost::asio::awaitable<void> cleanup_devices();
+
 
     std::string generateDeviceId();
 };
