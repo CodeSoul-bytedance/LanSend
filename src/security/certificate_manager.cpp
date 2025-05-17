@@ -9,16 +9,21 @@
 #include <spdlog/spdlog.h>
 #include <sstream>
 
-using json = nlohmann::json;
 namespace fs = std::filesystem;
+namespace ssl = boost::asio::ssl;
+using json = nlohmann::json;
 
-CertificateManager::CertificateManager(const fs::path& cert_dir) {
-    if (!fs::exists(cert_dir)) {
-        fs::create_directories(cert_dir);
+CertificateManager::CertificateManager(const fs::path& certDir)
+    : certificate_dir_(certDir) {
+    if (!fs::exists(certDir)) {
+        fs::create_directories(certDir);
     }
 
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
+
+    trusted_fingerprints_path_ = certificate_dir_ / "trusted_hosts.json";
+    load_trusted_fingerprints();
 }
 
 CertificateManager::~CertificateManager() {
@@ -46,54 +51,98 @@ const SecurityContext& CertificateManager::security_context() const {
     return security_context_;
 }
 
-std::string CertificateManager::calculate_certificate_hash(const std::string& certificate_pem) {
-    // Use SHA-256 to hash the PEM certificate
+// Calculate certificate fingerprint using SHA-256
+std::string CertificateManager::calculate_certificate_hash(const std::string& certificatePem) {
     unsigned char hash[EVP_MAX_MD_SIZE];
-    unsigned int hash_len;
+    unsigned int hashLen;
 
-    // Create EVP_MD_CTX and initialize it
+    // Create EVP_MD_CTX context
     EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
     EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL);
-    EVP_DigestUpdate(mdctx, certificate_pem.c_str(), certificate_pem.size());
-    EVP_DigestFinal_ex(mdctx, hash, &hash_len);
+    EVP_DigestUpdate(mdctx, certificatePem.c_str(), certificatePem.size());
+    EVP_DigestFinal_ex(mdctx, hash, &hashLen);
     EVP_MD_CTX_free(mdctx);
 
-    // Cast to hex string
+    // Convert to hexadecimal string
     std::stringstream ss;
-    for (unsigned int i = 0; i < hash_len; i++) {
+    for (unsigned int i = 0; i < hashLen; i++) {
         ss << std::hex << std::setw(2) << std::setfill('0') << (int) hash[i];
     }
 
     return ss.str();
 }
 
-bool CertificateManager::verify_remote_certificate(X509* cert,
-                                                   const std::string& expected_fingerprint) {
-    if (!cert)
+bool CertificateManager::verify_certificate(bool preverified, ssl::verify_context& ctx) {
+    // Get the certificate being verified
+    X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+    if (!cert) {
+        spdlog::error("No certificate to verify");
         return false;
-
-    // Cast to PEM format
-    BIO* cert_bio = BIO_new(BIO_s_mem());
-    PEM_write_bio_X509(cert_bio, cert);
-
-    char* cert_buf = nullptr;
-    long cert_len = BIO_get_mem_data(cert_bio, &cert_buf);
-    std::string cert_pem(cert_buf, cert_len);
-
-    std::string actual_fingerprint = calculate_certificate_hash(cert_pem);
-
-    BIO_free(cert_bio);
-
-    bool match = (actual_fingerprint == expected_fingerprint);
-    if (match) {
-        spdlog::info("Certificate fingerprint verified successfully");
-    } else {
-        spdlog::warn("Certificate fingerprint mismatch! Expected: {}, Got: {}",
-                     expected_fingerprint,
-                     actual_fingerprint);
     }
 
-    return match;
+    // Get the hostname currently being connected to
+    std::string hostname;
+    {
+        std::lock_guard<std::mutex> lock(hostname_mutex_);
+        hostname = current_hostname_;
+    }
+
+    if (hostname.empty()) {
+        spdlog::error("No hostname set for verification");
+        return false;
+    }
+
+    // Convert certificate to PEM format
+    BIO* certBio = BIO_new(BIO_s_mem());
+    PEM_write_bio_X509(certBio, cert);
+
+    char* certBuf = nullptr;
+    long certLen = BIO_get_mem_data(certBio, &certBuf);
+    std::string certPem(certBuf, certLen);
+
+    // Calculate fingerprint
+    std::string actualFingerprint = calculate_certificate_hash(certPem);
+
+    BIO_free(certBio);
+
+    // Check if the host already has a trusted fingerprint
+    if (trusted_hosts_.find(hostname) != trusted_hosts_.end()) {
+        // Known host, verify if fingerprint matches
+        std::string expectedFingerprint = trusted_hosts_[hostname];
+
+        if (actualFingerprint == expectedFingerprint) {
+            spdlog::info("Certificate fingerprint verified successfully for {}", hostname);
+            return true;
+        } else {
+            spdlog::error("SECURITY ALERT: Certificate fingerprint mismatch for {}!", hostname);
+            spdlog::error("Expected: {}", expectedFingerprint);
+            spdlog::error("Received: {}", actualFingerprint);
+            spdlog::error("This could indicate a man-in-the-middle attack!");
+
+            // In a real application, a user confirmation mechanism could be provided
+            return false;
+        }
+    } else {
+        // First connection to this host, record fingerprint
+        spdlog::warn("First connection to {}, saving fingerprint: {}", hostname, actualFingerprint);
+        trusted_hosts_[hostname] = actualFingerprint;
+        save_trusted_fingerprints();
+        return true;
+    }
+}
+
+void CertificateManager::trust_host(const std::string& hostname, const std::string& fingerprint) {
+    trusted_hosts_[hostname] = fingerprint;
+    save_trusted_fingerprints();
+}
+
+bool CertificateManager::is_host_trusted(const std::string& hostname,
+                                         const std::string& fingerprint) {
+    auto it = trusted_hosts_.find(hostname);
+    if (it != trusted_hosts_.end()) {
+        return it->second == fingerprint;
+    }
+    return false;
 }
 
 void CertificateManager::set_current_hostname(const std::string& hostname) {
@@ -111,7 +160,7 @@ bool CertificateManager::generate_self_signed_certificate() {
     X509* x509 = nullptr;
 
     try {
-        // Generate RSA key pair
+        // 1. Generate RSA key pair
         spdlog::info("Generating 2048-bit RSA key pair...");
         EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
         if (!ctx || EVP_PKEY_keygen_init(ctx) <= 0) {
@@ -133,23 +182,24 @@ bool CertificateManager::generate_self_signed_certificate() {
 
         EVP_PKEY_CTX_free(ctx);
 
-        // Create a new X509 certificate
+        // 2. Create X509 certificate
         x509 = X509_new();
 
-        // Set version
+        // Set version (V3)
         X509_set_version(x509, 2);
 
         // Set serial number
         ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
 
         // Set validity period
-        X509_gmtime_adj(X509_get_notBefore(x509), 0);                               // from now
-        X509_gmtime_adj(X509_get_notAfter(x509), 60 * 60 * 24 * kCertValidityDays); // 10 years
+        X509_gmtime_adj(X509_get_notBefore(x509), 0); // Starting from now
+        X509_gmtime_adj(X509_get_notAfter(x509),
+                        60 * 60 * 24 * kCertValidityDays); // Valid for 10 years
 
         // Set public key
         X509_set_pubkey(x509, pkey);
 
-        // Set subject name and issuer name
+        // Set subject name and issuer name (self-signed)
         X509_NAME* name = X509_get_subject_name(x509);
 
         char hostname[256];
@@ -171,42 +221,43 @@ bool CertificateManager::generate_self_signed_certificate() {
                                    -1,
                                    0);
 
-        X509_set_issuer_name(x509, name); // self-signed, so issuer is the same as subject
+        X509_set_issuer_name(x509, name); // Self is the issuer
 
         // Sign the certificate
         if (X509_sign(x509, pkey, EVP_sha256()) == 0) {
             throw std::runtime_error("Failed to sign certificate");
         }
 
-        // Cast to PEM format
-        BIO* private_bio = BIO_new(BIO_s_mem());
-        PEM_write_bio_PrivateKey(private_bio, pkey, nullptr, nullptr, 0, nullptr, nullptr);
+        // 3. Convert to PEM format
+        BIO* privateBio = BIO_new(BIO_s_mem());
+        PEM_write_bio_PrivateKey(privateBio, pkey, nullptr, nullptr, 0, nullptr, nullptr);
 
-        BIO* public_bio = BIO_new(BIO_s_mem());
-        PEM_write_bio_PUBKEY(public_bio, pkey);
+        BIO* publicBio = BIO_new(BIO_s_mem());
+        PEM_write_bio_PUBKEY(publicBio, pkey);
 
-        BIO* cert_bio = BIO_new(BIO_s_mem());
-        PEM_write_bio_X509(cert_bio, x509);
+        BIO* certBio = BIO_new(BIO_s_mem());
+        PEM_write_bio_X509(certBio, x509);
 
-        // Read BIO data into strings
-        char* private_buf = nullptr;
-        long private_len = BIO_get_mem_data(private_bio, &private_buf);
-        security_context_.private_key_pem = std::string(private_buf, private_len);
+        // Read BIO content to string
+        char* privateBuf = nullptr;
+        long privateLen = BIO_get_mem_data(privateBio, &privateBuf);
+        security_context_.private_key_pem = std::string(privateBuf, privateLen);
 
-        char* public_buf = nullptr;
-        long public_len = BIO_get_mem_data(public_bio, &public_buf);
-        security_context_.public_key_pem = std::string(public_buf, public_len);
+        char* publicBuf = nullptr;
+        long publicLen = BIO_get_mem_data(publicBio, &publicBuf);
+        security_context_.public_key_pem = std::string(publicBuf, publicLen);
 
-        char* cert_buf = nullptr;
-        long cert_len = BIO_get_mem_data(cert_bio, &cert_buf);
-        security_context_.certificate_pem = std::string(cert_buf, cert_len);
+        char* certBuf = nullptr;
+        long certLen = BIO_get_mem_data(certBio, &certBuf);
+        security_context_.certificate_pem = std::string(certBuf, certLen);
 
+        // 4. Calculate certificate fingerprint
         security_context_.certificate_hash = calculate_certificate_hash(
             security_context_.certificate_pem);
-        // Clean up
-        BIO_free(private_bio);
-        BIO_free(public_bio);
-        BIO_free(cert_bio);
+        // Release all resources
+        BIO_free(privateBio);
+        BIO_free(publicBio);
+        BIO_free(certBio);
         X509_free(x509);
         EVP_PKEY_free(pkey);
 
@@ -214,7 +265,7 @@ bool CertificateManager::generate_self_signed_certificate() {
     } catch (const std::exception& e) {
         spdlog::error("Certificate generation error: {}", e.what());
 
-        // Clean up
+        // Clean up resources
         if (x509)
             X509_free(x509);
         if (pkey)
@@ -226,21 +277,21 @@ bool CertificateManager::generate_self_signed_certificate() {
 
 bool CertificateManager::save_security_context() {
     try {
-        std::ofstream private_key_file(certificate_dir_ / "private_key.pem");
-        private_key_file << security_context_.private_key_pem;
-        private_key_file.close();
+        std::ofstream privateKeyFile(certificate_dir_ / "private_key.pem");
+        privateKeyFile << security_context_.private_key_pem;
+        privateKeyFile.close();
 
-        std::ofstream public_key_file(certificate_dir_ / "public_key.pem");
-        public_key_file << security_context_.public_key_pem;
-        public_key_file.close();
+        std::ofstream publicKeyFile(certificate_dir_ / "public_key.pem");
+        publicKeyFile << security_context_.public_key_pem;
+        publicKeyFile.close();
 
-        std::ofstream cert_file(certificate_dir_ / "certificate.pem");
-        cert_file << security_context_.certificate_pem;
-        cert_file.close();
+        std::ofstream certFile(certificate_dir_ / "certificate.pem");
+        certFile << security_context_.certificate_pem;
+        certFile.close();
 
-        std::ofstream fingerprint_file(certificate_dir_ / "fingerprint.txt");
-        fingerprint_file << security_context_.certificate_hash;
-        fingerprint_file.close();
+        std::ofstream fingerprintFile(certificate_dir_ / "fingerprint.txt");
+        fingerprintFile << security_context_.certificate_hash;
+        fingerprintFile.close();
 
         return true;
     } catch (const std::exception& e) {
@@ -258,25 +309,25 @@ bool CertificateManager::load_security_context() {
             return false;
         }
 
-        std::ifstream private_key_file(certificate_dir_ / "private_key.pem");
-        std::stringstream private_key_stream;
-        private_key_stream << private_key_file.rdbuf();
-        security_context_.private_key_pem = private_key_stream.str();
+        std::ifstream privateKeyFile(certificate_dir_ / "private_key.pem");
+        std::stringstream privateKeyStream;
+        privateKeyStream << privateKeyFile.rdbuf();
+        security_context_.private_key_pem = privateKeyStream.str();
 
-        std::ifstream public_key_file(certificate_dir_ / "public_key.pem");
-        std::stringstream public_key_stream;
-        public_key_stream << public_key_file.rdbuf();
-        security_context_.public_key_pem = public_key_stream.str();
+        std::ifstream publicKeyFile(certificate_dir_ / "public_key.pem");
+        std::stringstream publicKeyStream;
+        publicKeyStream << publicKeyFile.rdbuf();
+        security_context_.public_key_pem = publicKeyStream.str();
 
-        std::ifstream cert_file(certificate_dir_ / "certificate.pem");
-        std::stringstream cert_stream;
-        cert_stream << cert_file.rdbuf();
-        security_context_.certificate_pem = cert_stream.str();
+        std::ifstream certFile(certificate_dir_ / "certificate.pem");
+        std::stringstream certStream;
+        certStream << certFile.rdbuf();
+        security_context_.certificate_pem = certStream.str();
 
-        std::ifstream fingerprint_file(certificate_dir_ / "fingerprint.txt");
-        std::stringstream fingerprint_stream;
-        fingerprint_stream << fingerprint_file.rdbuf();
-        security_context_.certificate_hash = fingerprint_stream.str();
+        std::ifstream fingerprintFile(certificate_dir_ / "fingerprint.txt");
+        std::stringstream fingerprintStream;
+        fingerprintStream << fingerprintFile.rdbuf();
+        security_context_.certificate_hash = fingerprintStream.str();
 
         return !security_context_.private_key_pem.empty()
                && !security_context_.public_key_pem.empty()
@@ -285,5 +336,42 @@ bool CertificateManager::load_security_context() {
     } catch (const std::exception& e) {
         spdlog::error("Failed to load security context: {}", e.what());
         return false;
+    }
+}
+
+void CertificateManager::load_trusted_fingerprints() {
+    if (!fs::exists(trusted_fingerprints_path_)) {
+        spdlog::info("No trusted fingerprints file found, will create on first connection");
+        return;
+    }
+
+    try {
+        std::ifstream file(trusted_fingerprints_path_);
+        json j = json::parse(file);
+
+        for (const auto& [host, fingerprint] : j.items()) {
+            trusted_hosts_[host] = fingerprint.get<std::string>();
+        }
+
+        spdlog::info("Loaded {} trusted host fingerprints", trusted_hosts_.size());
+    } catch (const std::exception& e) {
+        spdlog::error("Failed to load trusted fingerprints: {}", e.what());
+    }
+}
+
+void CertificateManager::save_trusted_fingerprints() {
+    try {
+        json j;
+        for (const auto& [host, fingerprint] : trusted_hosts_) {
+            j[host] = fingerprint;
+        }
+
+        std::ofstream file(trusted_fingerprints_path_);
+        file << j.dump(2);
+        file.close();
+
+        spdlog::debug("Saved {} trusted host fingerprints", trusted_hosts_.size());
+    } catch (const std::exception& e) {
+        spdlog::error("Failed to save trusted fingerprints: {}", e.what());
     }
 }

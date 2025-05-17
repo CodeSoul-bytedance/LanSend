@@ -2,26 +2,28 @@
 
 #include <boost/asio/ssl/context.hpp>
 #include <filesystem>
-#include <models/SecurityContext.hpp>
+#include <models/security_context.hpp>
+#include <mutex>
+#include <openssl/x509.h>
 #include <string>
-
-namespace boost::asio::ssl {
-class context;
-}
+#include <unordered_map>
 
 class CertificateManager {
 public:
-    CertificateManager(const std::filesystem::path& cert_dir);
+    CertificateManager(const std::filesystem::path& certDir);
     ~CertificateManager();
 
     bool init_security_context();
 
     const SecurityContext& security_context() const;
 
-    // Calculate the SHA-256 hash of the certificate
-    static std::string calculate_certificate_hash(const std::string& certificate_pem);
+    static std::string calculate_certificate_hash(const std::string& certificatePem);
 
-    bool verify_remote_certificate(X509* cert, const std::string& expected_fingerprint);
+    bool verify_certificate(bool preverified, boost::asio::ssl::verify_context& ctx);
+
+    void trust_host(const std::string& hostname, const std::string& fingerprint);
+
+    bool is_host_trusted(const std::string& hostname, const std::string& fingerprint);
 
     void set_current_hostname(const std::string& hostname);
     std::string current_hostname() const;
@@ -33,10 +35,16 @@ private:
 
     bool load_security_context();
 
+    void load_trusted_fingerprints();
+
+    void save_trusted_fingerprints();
+
     SecurityContext security_context_;
     std::filesystem::path certificate_dir_;
+    std::filesystem::path trusted_fingerprints_path_;
 
-    // Hostname of the current connection
+    std::unordered_map<std::string, std::string> trusted_hosts_;
+
     std::string current_hostname_;
     mutable std::mutex hostname_mutex_;
 

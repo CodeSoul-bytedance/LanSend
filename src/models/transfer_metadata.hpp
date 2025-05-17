@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <nlohmann/json.hpp>
 #include <numeric>
 #include <optional>
@@ -88,6 +89,46 @@ struct TransferMetadata {
     std::chrono::system_clock::time_point updated_at;
 
     std::string token;
+
+    static std::optional<TransferMetadata> load(const std::filesystem::path& storage_dir,
+                                                uint64_t transfer_id) {
+        std::filesystem::path metadata_file_path = storage_dir
+                                                   / (std::to_string(transfer_id) + ".meta");
+
+        if (!std::filesystem::exists(metadata_file_path)) {
+            spdlog::warn("Metadata file not found: {}", metadata_file_path.string());
+            return std::nullopt;
+        }
+
+        std::ifstream ifs(metadata_file_path);
+        if (!ifs.is_open()) {
+            spdlog::error("Failed to open metadata file: {}", metadata_file_path.string());
+            return std::nullopt;
+        }
+
+        try {
+            nlohmann::json j;
+            ifs >> j;
+            TransferMetadata tm = j.get<TransferMetadata>();
+            return tm;
+        } catch (const nlohmann::json::parse_error& e) {
+            spdlog::error("Failed to parse metadata JSON from file {}: {}. Content might be "
+                          "malformed or empty.",
+                          metadata_file_path.string(),
+                          e.what());
+            return std::nullopt;
+        } catch (const nlohmann::json::exception& e) {
+            spdlog::error("JSON processing error for metadata file {}: {}",
+                          metadata_file_path.string(),
+                          e.what());
+            return std::nullopt;
+        } catch (const std::exception& e) {
+            spdlog::error("An unexpected error occurred while loading metadata file {}: {}",
+                          metadata_file_path.string(),
+                          e.what());
+            return std::nullopt;
+        }
+    }
 
     bool is_complete() const {
         if (chunks.empty() && total_chunks > 0)

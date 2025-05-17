@@ -1,9 +1,7 @@
-#include "core/network_manager.hpp"
 #include "utils/config.hpp"
 #include "utils/logger.hpp"
 #include <boost/asio.hpp>
-#include <iostream>
-#include <memory>
+#include <constants/path.hpp>
 
 int main(int argc, char* argv[]) {
     lansend::Logger logger(
@@ -12,8 +10,7 @@ int main(int argc, char* argv[]) {
 #else
         lansend::Logger::Level::info,
 #endif
-        (std::filesystem::temp_directory_path() / "CodeSoul" / "LanSend" / "logs" / "evento.log")
-            .string());
+        (lansend::path::kLogDir / "lansend.log").string());
     lansend::init_config();
     spdlog::info("Hello, welcome to LanSend!");
     lansend::save_config();

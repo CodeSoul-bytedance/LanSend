@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include <constants/path.hpp>
 #include <fstream>
 #include <spdlog/spdlog.h>
 
@@ -10,31 +11,6 @@
 #endif
 
 namespace lansend {
-namespace details {
-
-const std::filesystem::path config_dir =
-#if defined(_WIN32) || defined(_WIN64)
-    std::filesystem::path(std::getenv("APPDATA")) / "CodeSoul" / "LanSend";
-#else
-    std::filesystem::path(std::getenv("HOME")) / ".config" / "CodeSoul" / "LanSend";
-#endif
-
-const std::filesystem::path default_save_dir = [] {
-#if defined(_WIN32) || defined(_WIN64)
-    PWSTR path = nullptr;
-    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Downloads, 0, nullptr, &path))) {
-        auto saveDir = std::filesystem::path(path);
-        CoTaskMemFree(path);
-        return saveDir;
-    } else {
-        return std::filesystem::path(std::getenv("USERPROFILE")) / "Downloads";
-    }
-#else
-    return std::filesystem::path(std::getenv("HOME")) / "Downloads";
-#endif
-}();
-
-} // namespace details
 
 static void load_setting() {
     if (!config.contains("setting")) {
@@ -63,18 +39,18 @@ static void load_setting() {
         settings.autoSave = false;
     }
     if (setting.contains("save-dir")) {
-        settings.saveDir = setting["save-dir"].value_or(details::default_save_dir.string());
+        settings.saveDir = setting["save-dir"].value_or(path::kSystemDownloadDir.string());
     } else {
-        settings.saveDir = details::default_save_dir;
+        settings.saveDir = path::kSystemDownloadDir;
     }
 }
 
 void init_config() {
-    if (!std::filesystem::exists(details::config_dir)) {
+    if (!std::filesystem::exists(path::kConfigDir)) {
         spdlog::info("Config directory does not exist, creating...");
-        std::filesystem::create_directories(details::config_dir);
+        std::filesystem::create_directories(path::kConfigDir);
     }
-    auto path = details::config_dir / "config.toml";
+    auto path = path::kConfigDir / "config.toml";
     if (!std::filesystem::exists(path)) {
         std::ofstream ofs(path);
         spdlog::info("Config file does not exist, creating...");
@@ -90,7 +66,7 @@ void init_config() {
 }
 
 void save_config() {
-    auto path = details::config_dir / "config.toml";
+    auto path = path::kConfigDir / "config.toml";
     std::ofstream ofs(path);
     if (!ofs.is_open()) {
         spdlog::error("Failed to open \"{}\" for saving config.", path.string());

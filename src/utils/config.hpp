@@ -44,11 +44,15 @@ namespace lansend {
 inline toml::table config;
 
 struct Settings {
+    std::string device_id;
     std::string alias;             // Display name
     std::uint16_t port;            // Server port
     std::string authCode;          // Authentication Code for other devices to connect
     bool autoSave;                 // Whether to automatically save files from other devices
     std::filesystem::path saveDir; // Directory to save files from other devices
+    std::filesystem::path metadataStoragePath;
+    uint64_t chunkSize;
+    bool https = true; // Whether to use HTTPS instead of HTTP
 };
 
 inline Settings settings;

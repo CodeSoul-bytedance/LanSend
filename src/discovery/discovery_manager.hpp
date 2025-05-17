@@ -8,9 +8,16 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
+
+
+// 定义一个结构体来存储设备信息和最后活跃时间，用来管理删除长时间不活跃的设备
+struct DeviceEntry {
+    lansend::models::DeviceInfo device;
+    std::chrono::system_clock::time_point last_seen;
+};
 
 
 class DiscoveryManager {
@@ -42,8 +49,9 @@ public:
 private:
     std::mutex devices_mutex_;
     boost::asio::io_context& io_context_;
+    std::string device_id_;
 
-    std::map<std::string, lansend::models::DeviceInfo> discovered_devices_;
+    std::unordered_map<std::string, DeviceEntry> discovered_devices_;
     std::function<void(const lansend::models::DeviceInfo&)> device_found_callback_;
     std::function<void(const std::string&)> device_lost_callback_;
 
@@ -51,8 +59,14 @@ private:
     boost::asio::ip::udp::socket broadcast_socket_;
     boost::asio::ip::udp::socket listen_socket_;
     boost::asio::steady_timer broadcast_timer_;
+    boost::asio::steady_timer cleanup_timer_; // 新增清理定时器
 
     // 协程任务
     boost::asio::awaitable<void> broadcaster();
     boost::asio::awaitable<void> listener();
+
+    boost::asio::awaitable<void> cleanup_devices();
+
+
+    std::string generateDeviceId();
 };

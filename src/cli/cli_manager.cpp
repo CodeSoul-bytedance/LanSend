@@ -1,18 +1,17 @@
 #include "cli_manager.hpp"
 #include "../discovery/discovery_manager.hpp"
-#include "../transfer/transfer_manager.hpp"
 #include "../models/device_info.hpp"
 #include "../models/transfer_progress.hpp"
+#include "../transfer/transfer_manager.hpp"
+#include <filesystem>
 #include <iostream>
 #include <sstream>
-#include <filesystem>
 #include <stdexcept>
-#include "../transfer/transfer_manager.hpp" 
 
 CliManager::CliManager(NetworkManager& network_manager)
-    :terminal_(std::make_unique<Terminal>()),
-      progress_display_(std::make_unique<ProgressDisplay>()),
-      network_manager_(network_manager) {
+    : terminal_(std::make_unique<Terminal>())
+    , progress_display_(std::make_unique<ProgressDisplay>())
+    , network_manager_(network_manager) {
     // 注册事件回调
     network_manager_.set_device_found_callback(
         [this](const lansend::models::DeviceInfo& device) { this->on_device_found(device); });
@@ -63,7 +62,7 @@ void CliManager::handle_send_file(const std::string& device_id, const std::strin
         auto devices = network_manager_.get_discovered_devices();
         std::optional<lansend::models::DeviceInfo> device_info;
         for (const auto& device : devices) {
-            if(device.device_id == device_id) {
+            if (device.device_id == device_id) {
                 device_info = device;
                 break;
             }
@@ -112,18 +111,18 @@ void CliManager::execute_command(const std::vector<std::string>& args) {
     if (cmd == "list") {
         handle_list_devices();
         // terminal_->print_info("implement list function");
-    } else if (cmd == "send" ) {
-        if(args.size() >= 3){
+    } else if (cmd == "send") {
+        if (args.size() >= 3) {
             handle_send_file(args[1], args[2]);
             // terminal_->print_info("implement send function "+args[1]+" "+args[2]);
-        }else{
+        } else {
             terminal_->print_error("arguments is not enough!");
         }
     } else if (cmd == "transfers") {
         handle_show_transfers();
         // terminal_->print_info("implement transfers function");
     } else if (cmd == "cancel") {
-        if(args.size() >= 2){
+        if (args.size() >= 2) {
             try {
                 uint64_t transfer_id = std::stoull(args[1]);
                 handle_cancel_transfer(transfer_id);
@@ -131,15 +130,15 @@ void CliManager::execute_command(const std::vector<std::string>& args) {
             } catch (const std::exception& e) {
                 terminal_->print_error("invalid transfer ID: " + args[1]);
             }
-        }else{
+        } else {
             terminal_->print_error("arguments is not enough!");
         }
-        
+
     } else if (cmd == "help") {
         handle_show_help();
     } else if (cmd == "clear") {
         terminal_->clear_screen();
-    }else{
+    } else {
         terminal_->print_error("unknown command: " + cmd);
     }
 }
@@ -148,7 +147,8 @@ void CliManager::print_device_list(const std::vector<lansend::models::DeviceInfo
     terminal_->print_info("devices list:");
     for (const auto& device : devices) {
         std::ostringstream oss;
-        oss << "ID: " << device.device_id << " | 名称: " << device.alias << " | IP: " << device.ip_address;
+        oss << "ID: " << device.device_id << " | 名称: " << device.alias
+            << " | IP: " << device.ip_address;
         terminal_->print_info(oss.str());
     }
 }
@@ -160,19 +160,19 @@ void CliManager::print_transfer_list(const std::vector<TransferState>& transfers
         std::string s;
         switch (transfer.status) {
         case TransferStatus::Pending:
-            s="PENDING";
+            s = "PENDING";
             break;
         case TransferStatus::InProgress:
-            s="IN_PROGRESS";
+            s = "IN_PROGRESS";
             break;
         case TransferStatus::Completed:
-            s="COMPLETED";
+            s = "COMPLETED";
             break;
         case TransferStatus::Failed:
-            s="FAILED";
+            s = "FAILED";
             break;
         default:
-            s="Cancelled";
+            s = "Cancelled";
         }
         oss << "ID: " << transfer.id << " | state: " << s << std::endl;
         terminal_->print_info(oss.str());
@@ -202,9 +202,12 @@ void CliManager::on_transfer_progress(const lansend::models::TransferProgress& p
 
 void CliManager::on_transfer_complete(const TransferResult& result) {
     if (result.success) {
-        terminal_->print_info("Transfer completed: success，transfer ID: " + std::to_string(result.transfer_id));
+        terminal_->print_info("Transfer completed: success，transfer ID: "
+                              + std::to_string(result.transfer_id));
     } else {
-        terminal_->print_error("Transfer completed: fail，transfer ID: " + std::to_string(result.transfer_id) + "，wrong information: " + result.error_message);
+        terminal_->print_error("Transfer completed: fail，transfer ID: "
+                               + std::to_string(result.transfer_id)
+                               + "，wrong information: " + result.error_message);
     }
     progress_display_->clear_progress();
 }

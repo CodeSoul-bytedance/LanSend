@@ -6,13 +6,14 @@
 
 namespace ssl = boost::asio::ssl;
 
-class SSLContext {
+class SSLHelper {
 public:
     using VerifyCallback = std::function<bool(bool, ssl::verify_context&)>;
 
-    static ssl::context client_context(VerifyCallback verify_callback);
+    static ssl::context create_client_context(VerifyCallback verify_callback);
 
-    static ssl::context server_context(const std::string& cert_pem, const std::string& key_pem);
+    static ssl::context create_server_context(const std::string& cert_pem,
+                                              const std::string& key_pem);
 
     static bool set_hostname(SSL* ssl, const std::string& hostname);
 
