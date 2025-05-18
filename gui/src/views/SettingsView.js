@@ -30,10 +30,8 @@ const SettingsView = {
 
         // 保存设置
         async saveSettings() {
-            // 同步到父组件的设置
-            for (const key in this.localSettings) {
-                this.settings[key] = this.localSettings[key];
-            }
+            // 通过事件将更新后的设置发送给父组件
+            this.$emit("update-settings", { ...this.localSettings });
 
             // 发送设置到后端
             try {
@@ -47,13 +45,6 @@ const SettingsView = {
                 const result = await PipeClient.methods.updateSettings(
                     settingsPayload
                 );
-
-                // PipeClient.methods.updateSettings internally calls sendToBackend,
-                // which returns result.data on success or throws an error.
-                // If updateSettings itself doesn't transform the result (e.g., just returns what sendToBackend returns),
-                // and if sendToBackend returns {success: true/false}, we might need to check result.success.
-                // However, sendToBackend in pipe_client.js is designed to THROW on !result.success.
-                // So, if the call to PipeClient.methods.updateSettings succeeds, it means the backend reported success.
 
                 this.showSnackbar("设置已保存");
             } catch (error) {
