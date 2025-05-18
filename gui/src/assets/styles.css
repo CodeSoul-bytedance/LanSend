@@ -1,0 +1,86 @@
+/* 全局样式 */
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  overflow: hidden;
+}
+
+/* 设备卡片样式 */
+.device-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.device-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 进度条样式 */
+.transfer-progress {
+  height: 10px;
+  border-radius: 5px;
+}
+
+/* 文件上传区样式 */
+.file-drop-area {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.file-drop-area.active {
+  border-color: #1976d2;
+  background-color: rgba(25, 118, 210, 0.05);
+}
+
+/* 接收/发送区域样式 */
+.action-area {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 当没有连接时的样式 */
+.disconnected-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  color: white;
+  font-size: 1.5rem;
+}
+
+/* 空状态样式 */
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #757575;
+}
+
+/* 动画 */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pulse-animation {
+  animation: pulse 1.5s infinite;
+}
