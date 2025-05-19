@@ -196,3 +196,37 @@ boost::asio::awaitable<nlohmann::json> handle_update_settings(const nlohmann::js
 
     co_return response;
 }
+
+// 打开文件位置
+boost::asio::awaitable<nlohmann::json> handle_open_file_location(const nlohmann::json& data) {
+    spdlog::info("Processing open file location request");
+
+    if (!data.contains("file_path")) {
+        co_return nlohmann::json{{"success", false}, {"error", "缺少file_path参数"}};
+    }
+
+    std::string file_path = data["file_path"];
+
+    // TODO: 这里应添加实际的打开文件位置逻辑
+    // TODO: 记得删
+    nlohmann::json response = {{"success", true}, {"file_path", file_path}};
+
+    co_return response;
+}
+
+// 删除传输记录
+boost::asio::awaitable<nlohmann::json> handle_delete_transfer_record(const nlohmann::json& data) {
+    spdlog::info("Processing delete transfer record request");
+
+    if (!data.contains("transfer_id")) {
+        co_return nlohmann::json{{"success", false}, {"error", "缺少transfer_id参数"}};
+    }
+
+    std::string transfer_id = data["transfer_id"];
+
+    // TODO: 这里应添加实际的删除传输记录逻辑
+    // TODO: 记得删
+    nlohmann::json response = {{"success", true}, {"transfer_id", transfer_id}};
+
+    co_return response;
+}
