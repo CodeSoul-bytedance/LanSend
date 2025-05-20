@@ -1,10 +1,12 @@
-#include <core/security/file_encryptor.h>
-#include <core/security/open_ssl_provider.h>
+
+#include "file_encryptor.h"
 #include <cstring>
 #include <fstream>
 #include <spdlog/spdlog.h>
+#include <stdexcept>
 
-namespace lansend::core {
+namespace lansend {
+
 
 using ErrorType = std::string;
 
@@ -30,7 +32,9 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptData(
     const std::vector<std::uint8_t>& iv,
     std::vector<std::uint8_t>& tag,
     const std::vector<std::uint8_t>& aad) {
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+
+         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+
     if (!ctx) {
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -46,8 +50,8 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptData(
     }
 
     // 设置 IV 长度
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr)
-        != 1) {
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -67,8 +71,8 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptData(
     }
 
     // 加密数据
-    if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, data.data(), static_cast<int>(data.size()))
-        != 1) {
+
+    if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, data.data(), static_cast<int>(data.size())) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -83,8 +87,9 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptData(
 
     // 获取认证标签
     tag.resize(TAG_SIZE);
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, static_cast<int>(TAG_SIZE), tag.data())
-        != 1) {
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, static_cast<int>(TAG_SIZE), tag.data()) != 1) {
+
         EVP_CIPHER_CTX_free(ctx);
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -92,7 +97,9 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptData(
     EVP_CIPHER_CTX_free(ctx);
     ciphertext.resize(ciphertext_len);
     return ciphertext;
-}
+
+    }
+
 
 std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptData(
     const std::vector<std::uint8_t>& encrypted_data,
@@ -100,7 +107,9 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptData(
     const std::vector<std::uint8_t>& iv,
     const std::vector<std::uint8_t>& tag,
     const std::vector<std::uint8_t>& aad) {
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+
     if (!ctx) {
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -117,8 +126,9 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptData(
     }
 
     // 设置 IV 长度
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr)
-        != 1) {
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) != 1) {
+
         EVP_CIPHER_CTX_free(ctx);
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -138,23 +148,18 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptData(
     }
 
     // 解密数据
-    if (EVP_DecryptUpdate(ctx,
-                          plaintext.data(),
-                          &len,
-                          encrypted_data.data(),
-                          static_cast<int>(encrypted_data.size()))
-        != 1) {
+
+    if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, encrypted_data.data(), static_cast<int>(encrypted_data.size())) != 1) {
+
         EVP_CIPHER_CTX_free(ctx);
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
     plaintext_len = len;
 
     // 设置认证标签
-    if (EVP_CIPHER_CTX_ctrl(ctx,
-                            EVP_CTRL_GCM_SET_TAG,
-                            static_cast<int>(tag.size()),
-                            const_cast<std::uint8_t*>(tag.data()))
-        != 1) {
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, static_cast<int>(tag.size()), const_cast<std::uint8_t*>(tag.data())) != 1) {
+
         EVP_CIPHER_CTX_free(ctx);
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -170,11 +175,12 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptData(
     } else {
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
-}
+
+    }
 
 std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptKey(
     const std::vector<std::uint8_t>& key, const std::string& public_key_pem) {
-    BIO* bio = BIO_new_mem_buf(public_key_pem.data(), -1);
+
     if (!bio) {
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -191,11 +197,8 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptKey(
         return std::unexpected("Input key size exceeds the limit for RSA-OAEP encryption");
     }
     std::vector<std::uint8_t> encrypted_key(rsa_size);
-    int result = RSA_public_encrypt(static_cast<int>(key.size()),
-                                    key.data(),
-                                    encrypted_key.data(),
-                                    rsa,
-                                    RSA_PKCS1_OAEP_PADDING);
+    int result = RSA_public_encrypt(static_cast<int>(key.size()), key.data(), encrypted_key.data(), rsa, RSA_PKCS1_OAEP_PADDING);
+
     RSA_free(rsa);
 
     if (result == -1) {
@@ -204,11 +207,13 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptKey(
 
     encrypted_key.resize(result);
     return encrypted_key;
-}
+
+    }
 
 std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptKey(
     const std::vector<std::uint8_t>& encrypted_key, const std::string& private_key_pem) {
-    BIO* bio = BIO_new_mem_buf(private_key_pem.data(), -1);
+         BIO* bio = BIO_new_mem_buf(private_key_pem.data(), -1);
+
     if (!bio) {
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -221,11 +226,9 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptKey(
 
     int rsa_size = RSA_size(rsa);
     std::vector<std::uint8_t> key(rsa_size);
-    int result = RSA_private_decrypt(static_cast<int>(encrypted_key.size()),
-                                     encrypted_key.data(),
-                                     key.data(),
-                                     rsa,
-                                     RSA_PKCS1_OAEP_PADDING);
+
+    int result = RSA_private_decrypt(static_cast<int>(encrypted_key.size()), encrypted_key.data(), key.data(), rsa, RSA_PKCS1_OAEP_PADDING);
+
     RSA_free(rsa);
 
     if (result == -1) {
@@ -234,14 +237,18 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptKey(
 
     key.resize(result);
     return key;
-}
+
+    }
+
 
 std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptFile(
     const std::string& input_file,
     const std::string& output_file,
     const std::vector<std::uint8_t>& key,
     const std::vector<std::uint8_t>& iv) {
-    std::ifstream in(input_file, std::ios::binary);
+
+        std::ifstream in(input_file, std::ios::binary);
+
     if (!in) {
         return std::unexpected("Failed to open input file");
     }
@@ -261,8 +268,9 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptFile(
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr)
-        != 1) {
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) != 1) {
+
         EVP_CIPHER_CTX_free(ctx);
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -281,8 +289,9 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptFile(
         in.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
         std::streamsize count = in.gcount();
 
-        if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, buffer.data(), static_cast<int>(count))
-            != 1) {
+
+        if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, buffer.data(), static_cast<int>(count)) != 1) {
+
             EVP_CIPHER_CTX_free(ctx);
             return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
         }
@@ -297,22 +306,27 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptFile(
     out.write(reinterpret_cast<char*>(ciphertext.data()), len);
 
     tag.resize(TAG_SIZE);
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, static_cast<int>(TAG_SIZE), tag.data())
-        != 1) {
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, static_cast<int>(TAG_SIZE), tag.data()) != 1) {
+
         EVP_CIPHER_CTX_free(ctx);
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
 
     EVP_CIPHER_CTX_free(ctx);
     return tag;
-}
+
+    }
+
 
 bool FileEncryptor::DecryptFile(const std::string& input_file,
                                 const std::string& output_file,
                                 const std::vector<std::uint8_t>& key,
                                 const std::vector<std::uint8_t>& iv,
                                 const std::vector<std::uint8_t>& tag) {
+
     std::ifstream in(input_file, std::ios::binary);
+
     if (!in) {
         spdlog::error("Failed to open input file");
         return false;
@@ -336,8 +350,9 @@ bool FileEncryptor::DecryptFile(const std::string& input_file,
         return false;
     }
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr)
-        != 1) {
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) != 1) {
+
         spdlog::error("{}", ERR_error_string(ERR_get_error(), nullptr));
         EVP_CIPHER_CTX_free(ctx);
         return false;
@@ -358,8 +373,9 @@ bool FileEncryptor::DecryptFile(const std::string& input_file,
         in.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
         std::streamsize count = in.gcount();
 
-        if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, buffer.data(), static_cast<int>(count))
-            != 1) {
+
+        if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, buffer.data(), static_cast<int>(count)) != 1) {
+
             spdlog::error("{}", ERR_error_string(ERR_get_error(), nullptr));
             EVP_CIPHER_CTX_free(ctx);
             return false;
@@ -368,11 +384,9 @@ bool FileEncryptor::DecryptFile(const std::string& input_file,
         out.write(reinterpret_cast<char*>(plaintext.data()), len);
     }
 
-    if (EVP_CIPHER_CTX_ctrl(ctx,
-                            EVP_CTRL_GCM_SET_TAG,
-                            static_cast<int>(tag.size()),
-                            const_cast<std::uint8_t*>(tag.data()))
-        != 1) {
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, static_cast<int>(tag.size()), const_cast<std::uint8_t*>(tag.data())) != 1) {
+
         spdlog::error("{}", ERR_error_string(ERR_get_error(), nullptr));
         EVP_CIPHER_CTX_free(ctx);
         return false;
@@ -388,7 +402,9 @@ bool FileEncryptor::DecryptFile(const std::string& input_file,
         spdlog::error("{}", ERR_error_string(ERR_get_error(), nullptr));
         return false;
     }
-}
+
+                                }
+
 
 void FileEncryptor::secureZeroMemory(void* data_ptr, std::size_t len) {
     if (data_ptr && len > 0) {
@@ -396,8 +412,6 @@ void FileEncryptor::secureZeroMemory(void* data_ptr, std::size_t len) {
     }
 }
 
-FileEncryptor::FileEncryptor() {
-    OpenSSLProvider::InitOpenSSL();
-}
 
-} // namespace lansend::core
+} // namespace lansend
+
