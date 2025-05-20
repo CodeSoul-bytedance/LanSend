@@ -125,7 +125,7 @@ bool Terminal::IsKeyPressed() {
 }
 #endif
 
-void Terminal::PrintInfo(const std::string& message) {
+void Terminal::print_info(const std::string& message) {
 #ifdef _WIN32
     SetConsoleTextAttribute(hOut, FOREGROUND_GREEN);
     std::cout << "[INFO] " << message << std::endl;
@@ -135,7 +135,7 @@ void Terminal::PrintInfo(const std::string& message) {
 #endif
 }
 
-void Terminal::PrintError(const std::string& message) {
+void Terminal::print_error(const std::string& message) {
 #ifdef _WIN32
     SetConsoleTextAttribute(hOut, FOREGROUND_RED);
     std::cerr << "[ERROR] " << message << std::endl;
@@ -145,7 +145,7 @@ void Terminal::PrintError(const std::string& message) {
 #endif
 }
 
-void Terminal::PrintPrompt() {
+void Terminal::print_prompt() {
     std::cout << "> ";
     std::cout.flush();
 }

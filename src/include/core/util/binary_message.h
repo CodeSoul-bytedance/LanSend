@@ -5,6 +5,12 @@
 #include <spdlog/spdlog.h>
 #include <vector>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <arpa/inet.h>
+#endif
+
 namespace lansend {
 
 using BinaryData = std::vector<std::uint8_t>;

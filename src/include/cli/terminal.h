@@ -13,17 +13,17 @@ public:
     Terminal();
     ~Terminal();
 
-    void ClearScreen();
-    void SetCursorPosition(int x, int y);
-    std::string ReadLine();
-    bool IsKeyPressed();
+    void clear_screen();
+    void set_cursor_position(int x, int y);
+    std::string read_line();
+    bool is_key_pressed();
 
-    void PrintInfo(const std::string& message);
-    void PrintError(const std::string& message);
-    void PrintPrompt();
+    void print_info(const std::string& message);
+    void print_error(const std::string& message);
+    void print_prompt();
 
 private:
-    void initTerminal();
+    void init_terminal();
     void restoreTerminal();
 
 #ifdef _WIN32

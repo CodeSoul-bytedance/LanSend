@@ -45,3 +45,6 @@ CMakeUserPresets.json
 .vscode/settings.json
 .idea
 .vs
+
+#electron
+node_modules
