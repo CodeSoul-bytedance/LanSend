@@ -2,6 +2,7 @@
 #include <core/security/open_ssl_provider.h>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <sstream>

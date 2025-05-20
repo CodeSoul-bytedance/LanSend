@@ -5,6 +5,7 @@
 namespace lansend {
 
 void IpcEventStream::PostOperation(Operation&& operation) {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (operation.type == OperationType::kRespondToReceiveRequest) {
         ConfirmReceiveOperation confirm_receive_operation;
         try {
@@ -22,6 +23,7 @@ void IpcEventStream::PostOperation(Operation&& operation) {
 }
 
 void IpcEventStream::PostOperation(const Operation& operation) {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (operation.type == OperationType::kRespondToReceiveRequest) {
         ConfirmReceiveOperation confirm_receive_operation;
         try {
@@ -39,14 +41,17 @@ void IpcEventStream::PostOperation(const Operation& operation) {
 }
 
 void IpcEventStream::PostNotification(Notification&& notification) {
+    std::lock_guard<std::mutex> lock(mutex_);
     notifications_.emplace_back(std::move(notification));
 }
 
 void IpcEventStream::PostNotification(const Notification& notification) {
+    std::lock_guard<std::mutex> lock(mutex_);
     notifications_.emplace_back(notification);
 }
 
 std::optional<Operation> IpcEventStream::PollActiveOperation() {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (active_operations_.empty()) {
         return std::nullopt;
     }
@@ -56,6 +61,7 @@ std::optional<Operation> IpcEventStream::PollActiveOperation() {
 }
 
 std::optional<ConfirmReceiveOperation> IpcEventStream::PollConfirmReceiveOperation() {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!confirm_receive_operation_) {
         return std::nullopt;
     }
@@ -65,6 +71,7 @@ std::optional<ConfirmReceiveOperation> IpcEventStream::PollConfirmReceiveOperati
 }
 
 bool IpcEventStream::PollCancelReceiveOperation() {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!cancel_receive_operation_) {
         return false;
     }
@@ -73,6 +80,7 @@ bool IpcEventStream::PollCancelReceiveOperation() {
 }
 
 std::optional<Notification> IpcEventStream::PollNotification() {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (notifications_.empty()) {
         return std::nullopt;
     }

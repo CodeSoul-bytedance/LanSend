@@ -43,6 +43,12 @@ static void load_setting() {
     } else {
         settings.saveDir = path::kSystemDownloadDir;
     }
+    if (setting.contains("metadata-storage-path")) {
+        settings.metadataStoragePath = setting["metadata-storage-path"].value_or(
+            path::kSystemDownloadDir.string());
+    } else {
+        settings.metadataStoragePath = path::kSystemDownloadDir;
+    }
 }
 
 void init_config() {

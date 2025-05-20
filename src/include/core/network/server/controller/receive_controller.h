@@ -53,6 +53,9 @@ public:
 
     void NotifySenderLost();
 
+    // 重置接收控制器状态为空闲，取消当前的接收会话
+    void resetToIdle();
+
 private:
     boost::asio::awaitable<boost::beast::http::response<boost::beast::http::string_body>>
     onRequestSend(const boost::beast::http::request<boost::beast::http::string_body>& req);
@@ -72,7 +75,6 @@ private:
     void installRoutes();
     void doCleanup(); // Clean up any unfinished temp files when cancelled or failed
     void checkSessionCompletion();
-    void resetToIdle();
 
     HttpServer& server_;
     std::filesystem::path save_dir_;

@@ -79,6 +79,9 @@ public:
                                          bool keep_alive,
                                          std::string_view error_message = "Method Not Allowed");
 
+    // 获取接收控制器
+    ReceiveController& GetReceiveController() { return *receive_controller_; }
+
 private:
     // 接受连接
     boost::asio::awaitable<void> acceptConnections();

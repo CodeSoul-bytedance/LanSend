@@ -90,7 +90,7 @@ ssl::context OpenSSLProvider::BuildServerContext(std::string_view cert_pem,
 }
 
 bool OpenSSLProvider::SetHostname(SSL* ssl, std::string_view hostname) {
-    if (!ssl && !SSL_set_tlsext_host_name(ssl, hostname.data())) {
+    if (!ssl || !SSL_set_tlsext_host_name(ssl, hostname.data())) {
         return false;
     }
     return true;

@@ -4,3 +4,4 @@ repos:
     rev: "v20.1.0"
     hooks:
       - id: clang-format
+        exclude: ^.*\.js$

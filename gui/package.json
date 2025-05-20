@@ -1,0 +1,44 @@
+{
+  "name": "lansend_gui",
+  "version": "1.0.0",
+  "description": "LanSend文件传输的Electron GUI客户端",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "author": "CodeSoul",
+  "license": "ISC",
+  "dependencies": {
+    "electron-store": "latest",
+    "socket.io-client": "latest",
+    "vue": "latest",
+    "vuetify": "latest"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest",
+    "sass": "latest",
+    "vite": "latest"
+  },
+  "build": {
+    "appId": "com.codesoul.lansend",
+    "productName": "LanSend",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "mac": {
+      "target": ["dmg"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    }
+  }
+}

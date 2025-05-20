@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LanSend - 局域网文件传输</title>
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@3.3.15/dist/vuetify.min.css" rel="stylesheet">
+  <link href="assets/styles.css" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <!-- Vue应用将在这里挂载 -->
+  </div>
+
+  <!-- 导入Vue和Vuetify -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@3.3.15/dist/vuetify.min.js"></script>
+  
+  <!-- 导入组件和主应用 -->
+  <script src="components/DeviceList.js"></script>
+  <script src="components/TransferItem.js"></script>
+  <script src="components/FileUploader.js"></script>
+  <script src="views/HomeView.js"></script>
+  <script src="views/SettingsView.js"></script>
+  <script src="views/HistoryView.js"></script>
+  <script src="utils/pipe_client.js"></script>
+  
+  <!-- 主应用脚本 -->
+  <script src="app.js"></script>
+</body>
+</html>
