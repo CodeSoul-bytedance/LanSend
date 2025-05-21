@@ -19,7 +19,7 @@
 #include <ipc/ipc_event_stream.h>
 #include <mutex>
 
-namespace lansend {
+namespace lansend::ipc {
 IpcService::IpcService(boost::asio::io_context& io_context,
                        const std::string& stdin_pipe_name_str,
                        const std::string& stdout_pipe_name_str)
@@ -148,15 +148,15 @@ void IpcService::start() {
         }
     });
 
-    // boost::asio::co_spawn(io_context_, read_event_stream_loop(), [](std::exception_ptr e) {
-    //     if (e) {
-    //         try {
-    //             std::rethrow_exception(e);
-    //         } catch (const std::exception& ex) {
-    //             spdlog::error("Pipe communication exception: {}", ex.what());
-    //         }
-    //     }
-    // });
+    boost::asio::co_spawn(io_context_, read_event_stream_loop(), [](std::exception_ptr e) {
+        if (e) {
+            try {
+                std::rethrow_exception(e);
+            } catch (const std::exception& ex) {
+                spdlog::error("Pipe communication exception: {}", ex.what());
+            }
+        }
+    });
 }
 
 void IpcService::register_handler(const std::string& message_type, MessageHandler handler) {
@@ -170,7 +170,7 @@ boost::asio::awaitable<void> IpcService::send_message(const std::string& type,
 
     try {
         // 准备消息
-        nlohmann::json message = {{"type", type},
+        nlohmann::json message = {{"feedback", type},
                                   {"data", data},
                                   {"timestamp",
                                    std::chrono::system_clock::now().time_since_epoch().count()}};
@@ -317,8 +317,6 @@ boost::asio::awaitable<void> IpcService::read_message_loop() {
                 co_await handle_message(message_str);
             } catch (const std::exception& e) {
                 spdlog::error("Error handling message: {}", e.what());
-                // 继续循环，不中断读取
-                // 这里不需要 co_await，直接继续循环
             }
 
         } catch (const boost::system::system_error& e) {
@@ -364,7 +362,7 @@ boost::asio::awaitable<void> IpcService::read_message_loop() {
 
 boost::asio::awaitable<void> IpcService::read_event_stream_loop() {
     spdlog::info("Starting read event stream loop");
-    auto event_stream = lansend::IpcEventStream::Instance();
+    auto event_stream = lansend::ipc::IpcEventStream::Instance();
 
     while (running_) {
         try {
@@ -373,28 +371,28 @@ boost::asio::awaitable<void> IpcService::read_event_stream_loop() {
             co_await boost::asio::steady_timer(executor, std::chrono::milliseconds(10))
                 .async_wait(boost::asio::use_awaitable);
 
-            auto notification = event_stream->PollNotification();
-            if (!notification) {
+            auto feedback = event_stream->PollFeedback();
+            if (!feedback) {
                 continue;
             }
 
             // 直接使用枚举类型对应的字符串，而不是序列化枚举值
-            std::string notification_type;
-            nlohmann::json j = notification->type;
-            j.get_to(notification_type);
+            std::string feedback_type;
+            nlohmann::json j = feedback->type;
+            j.get_to(feedback_type);
 
-            nlohmann::json data = notification->data;
+            nlohmann::json data = feedback->data;
 
             // 获取通知类型名称
-            spdlog::debug("Processing notification: {}", notification_type);
+            spdlog::debug("Processing feedback: {}", feedback_type);
 
             // 尝试发送通知
             bool send_success = false;
             try {
-                co_await send_message(notification_type, data);
+                co_await send_message(feedback_type, data);
                 send_success = true;
             } catch (const std::exception& send_ex) {
-                spdlog::error("Error sending notification: {}", send_ex.what());
+                spdlog::error("Error sending feedback: {}", send_ex.what());
                 // 在catch块中不能使用co_await，所以只记录错误
             }
 
@@ -427,34 +425,13 @@ boost::asio::awaitable<void> IpcService::handle_message(const std::string& messa
         nlohmann::json message = nlohmann::json::parse(message_str);
 
         // 获取消息类型
-        if (!message.contains("type") || !message["type"].is_string()) {
-            spdlog::error("Invalid message format: missing type field");
+        if (!message.contains("operation") || !message["operation"].is_string()) {
+            spdlog::error("Invalid message format: missing operation field");
             co_return;
         }
 
-        std::string type = message["type"];
-
-        // 查找对应的处理器
-        auto it = handlers_.find(type);
-        if (it == handlers_.end()) {
-            spdlog::warn("Unknown message type: {}", type);
-
-            // 发送错误响应
-            co_await send_message("error",
-                                  {{"error", "unknown_message_type"},
-                                   {"message", "Unknown message type"},
-                                   {"original_type", type}});
-            co_return;
-        }
-
-        // 提取数据部分
-        nlohmann::json data = message.contains("data") ? message["data"] : nlohmann::json::object();
-
-        // 调用处理器
-        nlohmann::json response = co_await it->second(data);
-
-        // 发送响应
-        co_await send_message(type + "_response", response);
+        lansend::ipc::IpcEventStream::Instance()->PostOperation(
+            Operation(message["operation"], message["data"]));
 
     } catch (const std::exception& e) {
         spdlog::error("Failed to process message: {}", e.what());
@@ -470,4 +447,4 @@ boost::asio::awaitable<void> IpcService::handle_message(const std::string& messa
                                 std::string("Failed to process message: ") + error_message}});
     }
 }
-} // namespace lansend
+} // namespace lansend::ipc

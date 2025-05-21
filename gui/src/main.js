@@ -108,8 +108,6 @@ function startBackendProcess() {
         }
     }
 
-    // Final check for .exe on Windows if not already appended by above logic
-    // This might be redundant if the above logic is comprehensive but acts as a safeguard.
     if (process.platform === "win32" && !backendPath.endsWith(".exe")) {
         if (fs.existsSync(backendPath + ".exe")) {
             backendPath += ".exe";
@@ -310,7 +308,7 @@ function processReceivedDataInternal(newDataChunk) {
                 const messageObj = JSON.parse(messageJson);
                 console.log("Received from backend:", messageObj);
 
-                if (messageObj.type === "backend_started") {
+                if (messageObj.feedback === "backend_started") {
                     console.log(
                         "Backend has started and sent backend_started signal."
                     );
@@ -318,11 +316,11 @@ function processReceivedDataInternal(newDataChunk) {
                         isBackendLogicallyReady = true;
                         updateAndReportOverallBackendStatus();
                     }
-                } else if (messageObj.type === "log_message") {
+                } else if (messageObj.feedback === "log_message") {
                     // console.log(`[Backend Log - ${messageObj.level}]: ${messageObj.payload}`);
-                } else if (messageObj.id && messageQueue[messageObj.id]) {
-                    messageQueue[messageObj.id].resolve(messageObj);
-                    delete messageQueue[messageObj.id];
+                } else if (messageObj.data.msgId && messageQueue[messageObj.data.msgId]) {
+                    messageQueue[messageObj.data.msgId].resolve(messageObj);
+                    delete messageQueue[messageObj.data.msgId];
                 } else {
                     if (
                         mainWindow &&
@@ -357,7 +355,7 @@ function createWindow() {
         minWidth: 800,
         minHeight: 600,
         webPreferences: {
-            nodeIntegration: false,
+            nodeIntegration: true,
             contextIsolation: true,
             preload: path.join(__dirname, "preload.js"),
             devTools: process.argv.includes("--dev"),
@@ -424,7 +422,7 @@ async function sendToBackend(message) {
     }
 
     const id = messageId++;
-    message.id = id;
+    message.data.msgId = id;
 
     const messageData = JSON.stringify(message);
     const messageLength = Buffer.byteLength(messageData);

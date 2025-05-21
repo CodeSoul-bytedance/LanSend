@@ -6,17 +6,58 @@ const DeviceList = {
             default: () => [],
         },
     },
-
+    data() {
+        return {
+            pinDialogVisible: false,
+            selectedDeviceForPin: null,
+            pinCode: "",
+        };
+    },
     methods: {
         // 选择设备
         selectDevice(device) {
+            console.log("DeviceList: selectDevice");
             this.$emit("select-device", device);
         },
 
-        // 连接设备
-        connectToDevice(deviceId) {
-            console.log("DeviceList: 尝试连接设备", deviceId);
-            this.$emit("connect-device", deviceId);
+        // // 连接设备 (旧方法，将被 showPinDialog 和 submitPinAndConnect 替代)
+        // connectToDevice(deviceId) {
+        //     console.log("DeviceList: 尝试连接设备", deviceId);
+        //     this.$emit("connect_to_device", deviceId);
+        // },
+
+        showPinDialog(device) {
+            this.selectedDeviceForPin = device;
+            this.pinCode = ""; // 重置PIN码
+            this.pinDialogVisible = true;
+        },
+
+        cancelPinDialog() {
+            this.pinDialogVisible = false;
+            this.selectedDeviceForPin = null;
+            this.pinCode = "";
+        },
+
+        submitPinAndConnect() {
+            console.log("DeviceList: submitPinAndConnect");
+            if (
+                this.pinCode &&
+                this.pinCode.trim() !== "" &&
+                this.selectedDeviceForPin
+            ) {
+                console.log(
+                    `DeviceList: 尝试使用PIN连接设备 ${this.selectedDeviceForPin.device_id}, PIN: ${this.pinCode}`
+                );
+                this.$emit(
+                    "connect_to_device",
+                    this.selectedDeviceForPin.device_id,
+                    this.pinCode.trim()
+                );
+                this.cancelPinDialog(); // 关闭对话框并重置
+            } else {
+                // 可选: 如果PIN码为空，显示错误或警告
+                console.warn("PIN code cannot be empty.");
+            }
         },
 
         // 根据设备类型获取图标
@@ -66,7 +107,7 @@ const DeviceList = {
               </div>
             </v-card-text>
             <v-card-actions>
-              <v-btn color="primary" block @click="connectToDevice(device.device_id)">
+              <v-btn color="primary" block @click.stop="showPinDialog(device)">
                 <v-icon class="mr-2">mdi-link</v-icon>
                 连接设备
               </v-btn>
@@ -74,6 +115,29 @@ const DeviceList = {
           </v-card>
         </v-col>
       </v-row>
+
+      <v-dialog v-model="pinDialogVisible" persistent max-width="350px">
+        <v-card>
+          <v-card-title>
+            <span class="headline">输入认证码</span>
+          </v-card-title>
+          <v-card-text>
+            <p v-if="selectedDeviceForPin">请输入连接到 <strong>{{ selectedDeviceForPin.device_name }}</strong> ({{ selectedDeviceForPin.ip }}) 的认证码。</p>
+            <v-text-field
+              v-model="pinCode"
+              label="认证码 (PIN)"
+              required
+              autofocus
+              @keyup.enter="submitPinAndConnect"
+            ></v-text-field>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="blue darken-1" text @click="cancelPinDialog">取消</v-btn>
+            <v-btn color="blue darken-1" text @click="submitPinAndConnect" :disabled="!pinCode || !pinCode.trim()">确认连接</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </div>
   `,
 };

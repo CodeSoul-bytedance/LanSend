@@ -32,11 +32,12 @@ const HomeView = {
     methods: {
 
         // 处理文件发送
-        handleSendFiles(files) {
+        handleSendFiles(filePaths) {
+          console.log("HomeView: handleSendFiles")
             // 获取所有已连接的设备
             const connectedDevices = this.devices.filter(device => device.connected);
             if (connectedDevices.length > 0) {
-                this.$emit("send_request", connectedDevices, files);
+                this.$emit("send_request", connectedDevices, filePaths);
             } else {
                 console.error("没有已连接的设备可用于发送文件");
                 // 可以添加用户通知逻辑
@@ -45,6 +46,7 @@ const HomeView = {
 
         // 处理发送错误
         handleSendError(errorMessage) {
+          console.log("HomeView: handleSendError")
             console.error(`发送错误: ${errorMessage}`);
             // 这里可以添加错误通知UI，例如使用 alert 或显示错误消息
             // 如果有通知系统，可以在这里触发
@@ -52,11 +54,13 @@ const HomeView = {
 
         // 接受传输请求
         acceptTransfer(transferId) {
+          console.log("HomeView: acceptTransfer")
             this.$emit("respond_to_receive_request", transferId, true);
         },
 
         // 拒绝传输请求
         rejectTransfer(transferId) {
+          console.log("HomeView: rejectTransfer")
             this.$emit("respond_to_receive_request", transferId, false);
         },
 
@@ -75,12 +79,14 @@ const HomeView = {
         },
 
         //连接设备
-        connectToDevice(deviceId) {
-            this.$emit("connect_to_device", deviceId);
+        connectToDevice(deviceId, pinCode) {
+          console.log("HomeView: connectToDevice")
+            this.$emit("connect_to_device", deviceId, pinCode);
         },
 
         // 取消传输
         cancelTransfer(transferId) {
+          console.log("HomeView: cancelTransfer")
             this.$emit("cancel_send", transferId);
         },
     },
@@ -91,8 +97,7 @@ const HomeView = {
   
       <device-list 
         :devices="devices" 
-        @select-device="connectToDevice"
-        @connect-device="connectToDevice"
+        @connect_to_device="connectToDevice"
       ></device-list>
       
       <!-- 上传区域 -->
@@ -100,8 +105,8 @@ const HomeView = {
         <h2 class="text-h5 mb-4">发送文件</h2>
         <file-uploader 
           :devices="devices"
-          @send-files="handleSendFiles"
-          @send-error="handleSendError"
+          @send_files="handleSendFiles"
+          @send_error="handleSendError"
         ></file-uploader>
       </div>
 

@@ -1,7 +1,5 @@
 const { ipcRenderer, contextBridge } = require("electron");
 
-console.log("Preload: Running in contextIsolation:false mode.");
-
 contextBridge.exposeInMainWorld("electronAPI", {
     sendToBackend: (message) => {
         console.log(

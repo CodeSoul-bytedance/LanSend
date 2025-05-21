@@ -1,9 +1,9 @@
-#include "../include/core/util/logger.h"
-#include "../include/ipc/ipc_backend_service.h"
-#include "../include/ipc/ipc_event_stream.h"
 #include <chrono>
+#include <core/util/logger.h>
 #include <csignal>
 #include <iostream>
+#include <ipc/ipc_backend_service.h>
+#include <ipc/ipc_event_stream.h>
 #include <spdlog/spdlog.h>
 #include <string>
 #include <thread>
@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     spdlog::set_level(spdlog::level::info);
     spdlog::info("LanSend backend starting...");
 
-    lansend::init_config();
+    lansend::core::InitConfig();
 
     // 解析命令行参数，获取命名管道名称
     std::string stdin_pipe_name;
@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
 
     try {
         // 获取并启动后端服务
-        auto* service = lansend::IpcBackendService::Instance();
+        auto* service = lansend::ipc::IpcBackendService::Instance();
         service->start(stdin_pipe_name, stdout_pipe_name);
 
         spdlog::info("LanSend backend started");

@@ -4,6 +4,7 @@
 #include <boost/asio.hpp>
 #include <boost/beast/http/string_body_fwd.hpp>
 #include <core/network/client/http_client_service.h>
+#include <iostream>
 #include <nlohmann/json.hpp>
 
 namespace net = boost::asio;
@@ -106,6 +107,7 @@ void HttpClientService::ConnectDevice(const std::string& pin_code, const DeviceI
 void HttpClientService::SendFiles(std::string_view ip_address,
                                   unsigned short port,
                                   const std::vector<std::filesystem::path>& file_paths) {
+    std::cout << "HttpClientService::SendFiles: " << ip_address << ":" << port << std::endl;
     send_session_manager_.SendFiles(ip_address, port, file_paths);
 }
 

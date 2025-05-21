@@ -2,9 +2,9 @@ const PipeClient = {
     methods: {
         formatMessage(type, data = {}) {
             return {
-                type,
-                ...data,
-                timestamp: new Date().toISOString(),
+                "operation": type,
+                "data": data, 
+                "timestamp": new Date().toISOString(),
             };
         },
 
@@ -30,7 +30,7 @@ const PipeClient = {
 
         // 发送文件到设备
         send_files_to_devices(deviceIds, filePaths) {
-            return this.sendToBackend("send_request", {
+            return this.sendToBackend("SendFile", {
                 target_devices: deviceIds,
                 files: filePaths,
             });
@@ -38,21 +38,21 @@ const PipeClient = {
 
         // 取消等待确认
         cancelWaitForConfirmation(transferId) {
-            return this.sendToBackend("cancel_wait_for_confirmation", {
+            return this.sendToBackend("CancelWaitForConfirmation", {
                 transfer_id: transferId,
             });
         },
 
         // 取消传输
         cancelTransfer(transferId) {
-            return this.sendToBackend("cancel_send", {
+            return this.sendToBackend("CancelSend", {
                 transfer_id: transferId,
             });
         },
 
         //回应传输请求
         respondToReceiveRequest(transferId, accept) {
-            return this.sendToBackend("respond_to_receive_request", {
+            return this.sendToBackend("ConfirmReceive", {
                 transfer_id: transferId,
                 accept,
             });
@@ -60,28 +60,29 @@ const PipeClient = {
 
         // 取消接收
         cancelReceive(transferId) {
-            return this.sendToBackend("cancel_receive", {
+            return this.sendToBackend("CancelReceive", {
                 transfer_id: transferId,
             });
         },
 
         // 更新设置
         updateSettings(settings) {
-            return this.sendToBackend("update_settings", {
+            return this.sendToBackend("ModifySettings", {
                 settings,
             });
         },
 
         // 连接设备
-        connectToDevice(deviceId) {
-            return this.sendToBackend("connect_to_device", {
+        connectToDevice(deviceId, pinCode) {
+            return this.sendToBackend("ConnectToDevice", {
                 device_id: deviceId,
+                pin_code: pinCode,
             });
         },
 
         //退出
         exit() {
-            return this.sendToBackend("exit");
+            return this.sendToBackend("ExitApp");
         },
     },
 };

@@ -13,11 +13,11 @@
 #include <boost/asio/posix/stream_descriptor.hpp>
 #endif
 
-namespace lansend {
+namespace lansend::ipc {
 
 // receive events from the frontend application, post them to IpcEventStream
 // poll notifications from IpcEventStream, send them to the frontend application
-class IpcService::ipc {
+class IpcService {
 public:
     // 消息处理器类型（接收JSON消息，返回JSON响应）
     using MessageHandler
@@ -61,4 +61,4 @@ private:
     std::mutex write_mutex_; // 用于同步对管道的写入操作
 };
 
-} // namespace lansend
+} // namespace lansend::ipc

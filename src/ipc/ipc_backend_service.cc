@@ -6,6 +6,8 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <chrono>
+#include <core/model/feedback/feedback.h>
+#include <core/model/feedback/feedback_type.h>
 #include <core/network/client/http_client_service.h>
 #include <core/network/discovery/discovery_manager.h>
 #include <core/network/server/http_server.h>
@@ -16,19 +18,17 @@
 #include <filesystem>
 #include <ipc/ipc_backend_service.h>
 #include <ipc/ipc_event_stream.h>
-#include <ipc/model/notification.h>
-#include <ipc/model/notification_type.h>
 #include <ipc/model/operation.h>
 #include <ipc/model/operation_type.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-namespace lansend {
+namespace lansend::ipc {
 
 IpcBackendService::IpcBackendService()
     : io_context_()
     , poll_timer_(io_context_)
-    , settings_(lansend::settings) {
+    , settings_(lansend::core::settings) {
     spdlog::info("Initializing IpcBackendService");
 }
 
@@ -52,7 +52,8 @@ void IpcBackendService::start(const std::string& stdin_pipe_name,
 
     // 初始化证书管理器
     // 使用配置中的元数据存储路径作为证书目录
-    cert_manager_ = std::make_unique<CertificateManager>(settings_.metadataStoragePath);
+    cert_manager_ = std::make_unique<lansend::core::CertificateManager>(
+        settings_.metadataStoragePath);
 
     // 初始化安全上下文（生成或加载证书）
     if (!cert_manager_->InitSecurityContext()) {
@@ -62,37 +63,39 @@ void IpcBackendService::start(const std::string& stdin_pipe_name,
 
     // 初始化SSL上下文
     ssl_context_ = std::make_unique<boost::asio::ssl::context>(
-        OpenSSLProvider::BuildServerContext(cert_manager_->security_context().certificate_pem,
-                                            cert_manager_->security_context().private_key_pem));
+        lansend::core::OpenSSLProvider::BuildServerContext(
+            cert_manager_->security_context().certificate_pem,
+            cert_manager_->security_context().private_key_pem));
 
     // 初始化设备发现管理器
-    discovery_manager_ = std::make_unique<DiscoveryManager>(io_context_);
-    discovery_manager_->SetDeviceFoundCallback([this](const lansend::models::DeviceInfo& device) {
+    discovery_manager_ = std::make_unique<lansend::core::DiscoveryManager>(io_context_);
+    discovery_manager_->SetDeviceFoundCallback([this](const lansend::core::DeviceInfo& device) {
         // 发送设备发现通知
-        Notification notification;
-        notification.type = NotificationType::kFoundDevice;
-        notification.data = nlohmann::json{{{"device_id", device.device_id},
-                                            {"alias", device.alias},
-                                            {"ip", device.ip_address},
-                                            {"port", device.port}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kFoundDevice;
+        feedback.data = nlohmann::json{{{"device_id", device.device_id},
+                                        {"alias", device.alias},
+                                        {"ip", device.ip_address},
+                                        {"port", device.port}}};
+        IpcEventStream::Instance()->PostFeedback(feedback);
     });
 
     discovery_manager_->SetDeviceLostCallback([this](const std::string& device_id) {
         // 发送设备丢失通知
-        Notification notification;
-        notification.type = NotificationType::kLostDevice;
-        notification.data = nlohmann::json{{"device_id", device_id}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kLostDevice;
+        feedback.data = nlohmann::json{{"device_id", device_id}};
+        IpcEventStream::Instance()->PostFeedback(feedback);
     });
 
     // 初始化HTTP服务器
-    http_server_ = std::make_unique<HttpServer>(io_context_, *ssl_context_);
+    http_server_ = std::make_unique<lansend::core::HttpServer>(io_context_, *ssl_context_);
 
     // 初始化发送会话管理器
     // send_session_manager_ = std::make_unique<SendSessionManager>(io_context_, *cert_manager_);
 
-    http_client_service_ = std::make_unique<HttpClientService>(io_context_, *cert_manager_);
+    http_client_service_ = std::make_unique<lansend::core::HttpClientService>(io_context_,
+                                                                              *cert_manager_);
 
     // 启动设备发现
     discovery_manager_->Start(settings_.port);
@@ -115,16 +118,16 @@ void IpcBackendService::start(const std::string& stdin_pipe_name,
     spdlog::info("IpcBackendService started");
 
     // 发送设置通知
-    Notification settings_notification;
-    settings_notification.type = NotificationType::kSettings;
-    settings_notification.data = nlohmann::json{{{"device_id", settings_.device_id},
-                                                 {"device_name", settings_.alias},
-                                                 {"port", settings_.port},
-                                                 {"auth_code", settings_.authCode},
-                                                 {"auto_save", settings_.autoSave},
-                                                 {"save_dir", settings_.saveDir.string()},
-                                                 {"https", settings_.https}}};
-    IpcEventStream::Instance()->PostNotification(settings_notification);
+    lansend::core::Feedback settings_feedback;
+    settings_feedback.type = lansend::core::FeedbackType::kSettings;
+    settings_feedback.data = nlohmann::json{{{"device_id", settings_.device_id},
+                                             {"device_name", settings_.alias},
+                                             {"port", settings_.port},
+                                             {"pin_code", settings_.pin_code},
+                                             {"auto_receive", settings_.auto_receive},
+                                             {"save_dir", settings_.save_dir.string()},
+                                             {"https", settings_.https}}};
+    IpcEventStream::Instance()->PostFeedback(settings_feedback);
 }
 
 void IpcBackendService::stop() {
@@ -164,14 +167,14 @@ void IpcBackendService::poll_events() {
     // 处理操作
     auto operation = IpcEventStream::Instance()->PollActiveOperation();
     if (operation) {
-        handle_operation(*operation);
+        handle_operation(operation.value());
     }
 
     // 处理通知
-    auto notification = IpcEventStream::Instance()->PollNotification();
-    if (notification) {
-        handle_event(*notification);
-    }
+    // auto feedback = IpcEventStream::Instance()->PollFeedback();
+    // if (feedback) {
+    //     handle_event(*feedback);
+    // }
 
     // 设置下一次轮询
     poll_timer_.expires_after(std::chrono::milliseconds(100));
@@ -182,16 +185,17 @@ void IpcBackendService::poll_events() {
     });
 }
 
-void IpcBackendService::handle_event(const Notification& notification) {
-    spdlog::info("Processing notification: {}", static_cast<int>(notification.type));
+void IpcBackendService::handle_event(const lansend::core::Feedback& feedback) {
+    spdlog::info("Processing feedback: {}", static_cast<int>(feedback.type));
 
     // 这里可以添加对特定通知类型的处理逻辑
-    switch (notification.type) {
-    case NotificationType::kError:
-        spdlog::error("Received error notification: {}", notification.data.dump());
+    switch (feedback.type) {
+    case lansend::core::FeedbackType::kError:
+        spdlog::error("Received error feedback: {}", feedback.data.dump());
         break;
     default:
         // 默认情况下，只是将通知转发给前端
+        // send_message(feedback);
         break;
     }
 }
@@ -245,34 +249,38 @@ void IpcBackendService::handle_operation(const Operation& operation) {
 
 boost::asio::awaitable<void> IpcBackendService::handle_send_file(const nlohmann::json& data) {
     spdlog::info("Processing send file request");
-
-    if (!data.contains("target_device") || !data.contains("files")) {
+    if (!data.contains("target_devices") || !data.contains("files")) {
         spdlog::error("Send file request missing necessary parameters");
         co_return;
     }
 
-    std::string target_device = data["target_device"];
+    std::vector<std::string> target_devices;
+    for (auto it : data["target_devices"]) {
+        target_devices.push_back(it["device_id"]);
+    }
     auto files = data["files"];
 
     // 获取目标设备信息
     auto devices = discovery_manager_->GetDevices();
-    auto it = std::find_if(devices.begin(),
-                           devices.end(),
-                           [&target_device](const lansend::models::DeviceInfo& device) {
-                               return device.device_id == target_device;
-                           });
 
-    if (it == devices.end()) {
-        spdlog::error("Target device not found: {}", target_device);
-        co_return;
+    for (auto target_device : target_devices) {
+        auto it = std::find_if(devices.begin(),
+                               devices.end(),
+                               [&target_device](const lansend::core::DeviceInfo& device) {
+                                   return device.device_id == target_device;
+                               });
+
+        if (it == devices.end()) {
+            spdlog::error("Target device not found: {}", target_device);
+            co_return;
+        }
     }
 
     // 准备文件路径列表
+
     std::vector<std::filesystem::path> file_paths;
     for (const auto& file : files) {
-        if (file.contains("path")) {
-            file_paths.push_back(file["path"].get<std::string>());
-        }
+        file_paths.push_back(file.get<std::string>());
     }
 
     if (file_paths.empty()) {
@@ -282,24 +290,30 @@ boost::asio::awaitable<void> IpcBackendService::handle_send_file(const nlohmann:
 
     // 发送文件
     try {
-        // send_session_manager_->SendFiles(it->ip_address, it->port, file_paths);
+        for (auto target_device : target_devices) {
+            auto it = std::find_if(devices.begin(),
+                                   devices.end(),
+                                   [&target_device](const lansend::core::DeviceInfo& device) {
+                                       return device.device_id == target_device;
+                                   });
 
-        http_client_service_->SendFiles(it->ip_address, it->port, file_paths);
+            http_client_service_->SendFiles(it->ip_address, it->port, file_paths);
 
-        // 发送通知：已连接到设备
-        Notification notification;
-        notification.type = NotificationType::kConnectedToDevice;
-        notification.data = nlohmann::json{{"device_id", target_device}};
-        IpcEventStream::Instance()->PostNotification(notification);
+            // 发送通知：已连接到设备
+            lansend::core::Feedback feedback;
+            feedback.type = lansend::core::FeedbackType::kConnectedToDevice;
+            feedback.data = nlohmann::json{{"device_id", target_device}};
+            IpcEventStream::Instance()->PostFeedback(feedback);
+        }
+
     } catch (const std::exception& e) {
         spdlog::error("Failed to send file: {}", e.what());
 
         // 发送错误通知
-        Notification notification;
-        notification.type = NotificationType::kError;
-        notification.data = nlohmann::json{
-            {{"error", "Failed to send file"}, {"message", e.what()}, {"device_id", target_device}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kError;
+        feedback.data = nlohmann::json{{{"error", "Failed to send file"}, {"message", e.what()}}};
+        IpcEventStream::Instance()->PostFeedback(feedback);
     }
 
     co_return;
@@ -322,20 +336,19 @@ boost::asio::awaitable<void> IpcBackendService::handle_cancel_wait_for_confirmat
         spdlog::info("Successfully cancelled wait for confirmation: {}", transfer_id);
 
         // 发送成功通知
-        Notification notification;
-        notification.type = NotificationType::kSendingCancelledByReceiver;
-        notification.data = nlohmann::json{{{"transfer_id", transfer_id}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kSendingCancelledByReceiver;
+        feedback.data = nlohmann::json{{{"transfer_id", transfer_id}}};
+        IpcEventStream::Instance()->PostFeedback(feedback);
     } catch (const std::exception& e) {
         spdlog::error("Error cancelling wait for confirmation: {}", e.what());
 
         // 发送错误通知
-        Notification notification;
-        notification.type = NotificationType::kError;
-        notification.data = nlohmann::json{
-            {{"error", std::string("取消等待确认时出错：") + e.what()},
-             {"transfer_id", transfer_id}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kError;
+        feedback.data = nlohmann::json{{{"error", std::string("取消等待确认时出错：") + e.what()},
+                                        {"transfer_id", transfer_id}}};
+        IpcEventStream::Instance()->PostFeedback(feedback);
     }
 
     co_return;
@@ -396,29 +409,28 @@ boost::asio::awaitable<void> IpcBackendService::handle_respond_to_receive_reques
             spdlog::info("Accept receive request: {}", transfer_id);
 
             // 发送接受通知
-            Notification notification;
-            notification.type = NotificationType::kRecipientAccepted;
-            notification.data = nlohmann::json{{{"transfer_id", transfer_id}}};
-            IpcEventStream::Instance()->PostNotification(notification);
+            lansend::core::Feedback feedback;
+            feedback.type = lansend::core::FeedbackType::kRecipientAccepted;
+            feedback.data = nlohmann::json{{{"transfer_id", transfer_id}}};
+            IpcEventStream::Instance()->PostFeedback(feedback);
         } else {
             spdlog::info("Reject receive request: {}", transfer_id);
 
             // 发送拒绝通知
-            Notification notification;
-            notification.type = NotificationType::kRecipientDeclined;
-            notification.data = nlohmann::json{{{"transfer_id", transfer_id}}};
-            IpcEventStream::Instance()->PostNotification(notification);
+            lansend::core::Feedback feedback;
+            feedback.type = lansend::core::FeedbackType::kRecipientDeclined;
+            feedback.data = nlohmann::json{{{"transfer_id", transfer_id}}};
+            IpcEventStream::Instance()->PostFeedback(feedback);
         }
     } catch (const std::exception& e) {
         spdlog::error("Error responding to receive request: {}", e.what());
 
         // 发送错误通知
-        Notification notification;
-        notification.type = NotificationType::kError;
-        notification.data = nlohmann::json{
-            {{"error", std::string("响应接收请求时出错：") + e.what()},
-             {"transfer_id", transfer_id}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kError;
+        feedback.data = nlohmann::json{{{"error", std::string("响应接收请求时出错：") + e.what()},
+                                        {"transfer_id", transfer_id}}};
+        IpcEventStream::Instance()->PostFeedback(feedback);
     }
 
     co_return;
@@ -440,11 +452,11 @@ boost::asio::awaitable<void> IpcBackendService::handle_cancel_receive(const nloh
             spdlog::error("HTTP server not initialized");
 
             // 发送错误通知
-            Notification notification;
-            notification.type = NotificationType::kError;
-            notification.data = nlohmann::json{
+            lansend::core::Feedback feedback;
+            feedback.type = lansend::core::FeedbackType::kError;
+            feedback.data = nlohmann::json{
                 {{"error", "无法取消接收：HTTP服务器未初始化"}, {"transfer_id", transfer_id}}};
-            IpcEventStream::Instance()->PostNotification(notification);
+            IpcEventStream::Instance()->PostFeedback(feedback);
             co_return;
         }
 
@@ -452,15 +464,15 @@ boost::asio::awaitable<void> IpcBackendService::handle_cancel_receive(const nloh
         auto& receive_controller = http_server_->GetReceiveController();
 
         // 检查当前是否有接收会话
-        if (receive_controller.session_status() != lansend::ReceiveSessionStatus::kReceiving) {
+        if (receive_controller.session_status() != lansend::core::ReceiveSessionStatus::kReceiving) {
             spdlog::warn("No active receive session to cancel");
 
             // 发送错误通知
-            Notification notification;
-            notification.type = NotificationType::kError;
-            notification.data = nlohmann::json{
+            lansend::core::Feedback feedback;
+            feedback.type = lansend::core::FeedbackType::kError;
+            feedback.data = nlohmann::json{
                 {{"error", "没有活动的接收会话可取消"}, {"transfer_id", transfer_id}}};
-            IpcEventStream::Instance()->PostNotification(notification);
+            IpcEventStream::Instance()->PostFeedback(feedback);
             co_return;
         }
 
@@ -469,19 +481,19 @@ boost::asio::awaitable<void> IpcBackendService::handle_cancel_receive(const nloh
         spdlog::info("Successfully cancelled receive session: {}", transfer_id);
 
         // 发送成功通知
-        Notification notification;
-        notification.type = NotificationType::kReceivingCancelledBySender;
-        notification.data = nlohmann::json{{{"transfer_id", transfer_id}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kReceivingCancelledBySender;
+        feedback.data = nlohmann::json{{{"transfer_id", transfer_id}}};
+        IpcEventStream::Instance()->PostFeedback(feedback);
     } catch (const std::exception& e) {
         spdlog::error("Error cancelling receive: {}", e.what());
 
         // 发送错误通知
-        Notification notification;
-        notification.type = NotificationType::kError;
-        notification.data = nlohmann::json{
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kError;
+        feedback.data = nlohmann::json{
             {{"error", std::string("取消接收时出错：") + e.what()}, {"transfer_id", transfer_id}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        IpcEventStream::Instance()->PostFeedback(feedback);
     }
 
     co_return;
@@ -514,17 +526,17 @@ boost::asio::awaitable<void> IpcBackendService::handle_modify_settings(const nlo
 
     // 更新认证码
     if (settings_data.contains("auth_code")) {
-        settings_.authCode = settings_data["auth_code"];
+        settings_.pin_code = settings_data["auth_code"];
     }
 
     // 更新自动保存设置
     if (settings_data.contains("auto_save")) {
-        settings_.autoSave = settings_data["auto_save"];
+        settings_.auto_receive = settings_data["auto_save"];
     }
 
     // 更新保存目录
     if (settings_data.contains("save_dir")) {
-        settings_.saveDir = std::filesystem::path(settings_data["save_dir"].get<std::string>());
+        settings_.save_dir = std::filesystem::path(settings_data["save_dir"].get<std::string>());
     }
 
     // 更新HTTPS设置
@@ -537,7 +549,7 @@ boost::asio::awaitable<void> IpcBackendService::handle_modify_settings(const nlo
     }
 
     // 保存配置
-    save_config();
+    lansend::core::SaveConfig();
 
     co_return;
 }
@@ -545,19 +557,20 @@ boost::asio::awaitable<void> IpcBackendService::handle_modify_settings(const nlo
 boost::asio::awaitable<void> IpcBackendService::handle_connect_to_device(const nlohmann::json& data) {
     spdlog::info("Processing connect to device request");
 
-    if (!data.contains("device_id") || !data.contains("auth_code")) {
+    if (!data.contains("device_id") || !data.contains("pin_code")) {
         spdlog::error("Connect to device request missing necessary parameters");
         co_return;
     }
 
     std::string device_id = data["device_id"];
-    std::string auth_code = data["auth_code"];
+    std::string pin_code = data["pin_code"];
+    uint64_t msgId = data["msgId"];
 
     // 获取设备信息
     auto devices = discovery_manager_->GetDevices();
     auto it = std::find_if(devices.begin(),
                            devices.end(),
-                           [&device_id](const lansend::models::DeviceInfo& device) {
+                           [&device_id](const lansend::core::DeviceInfo& device) {
                                return device.device_id == device_id;
                            });
 
@@ -565,16 +578,15 @@ boost::asio::awaitable<void> IpcBackendService::handle_connect_to_device(const n
         spdlog::error("Device not found: {}", device_id);
 
         // 发送错误通知
-        Notification notification;
-        notification.type = NotificationType::kError;
-        notification.data = nlohmann::json{
-            {{"error", "Device not found"}, {"device_id", device_id}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kError;
+        feedback.data = nlohmann::json{{{"error", "Device not found"}, {"device_id", device_id}}};
+        IpcEventStream::Instance()->PostFeedback(feedback);
         co_return;
     }
 
     // 创建HTTP客户端
-    auto client = std::make_unique<HttpsClient>(io_context_, *cert_manager_);
+    auto client = std::make_unique<lansend::core::HttpsClient>(io_context_, *cert_manager_);
 
     try {
         // 连接到目标设备
@@ -583,29 +595,28 @@ boost::asio::awaitable<void> IpcBackendService::handle_connect_to_device(const n
 
         if (!connected) {
             spdlog::error("Failed to connect to device: {}:{}", it->ip_address, it->port);
-            Notification notification;
-            notification.type = NotificationType::kError;
-            notification.data = nlohmann::json{
+            lansend::core::Feedback feedback;
+            feedback.type = lansend::core::FeedbackType::kError;
+            feedback.data = nlohmann::json{
                 {{"error", "Failed to connect to device"}, {"device_id", device_id}}};
-            IpcEventStream::Instance()->PostNotification(notification);
+            IpcEventStream::Instance()->PostFeedback(feedback);
             co_return;
         }
 
         // 准备连接请求
-        nlohmann::json connect_data = {{"auth_code", auth_code},
+        nlohmann::json connect_data = {{"pin_code", pin_code},
                                        {"device_info",
                                         {{"device_id", settings_.device_id},
                                          {"alias", settings_.alias},
                                          {"hostname", settings_.alias},
                                          {"port", settings_.port},
-                                         {"os", system::OperatingSystem()},
+                                         {"os", lansend::core::system::OperatingSystem()},
                                          {"device_model", "PC"},
                                          {"device_type", "desktop"}}}};
 
         // 创建并发送连接请求
-        auto req
-            = client->CreateRequest<boost::beast::http::string_body>(boost::beast::http::verb::post,
-                                                                     ApiRoute::kConnect.data());
+        auto req = client->CreateRequest<boost::beast::http::string_body>(
+            boost::beast::http::verb::post, lansend::core::ApiRoute::kConnect.data());
         req.body() = connect_data.dump();
         req.prepare_payload();
 
@@ -623,43 +634,45 @@ boost::asio::awaitable<void> IpcBackendService::handle_connect_to_device(const n
                 // connected_devices_[device_id] = std::move(client);
 
                 // 发送通知：已连接到设备
-                Notification notification;
-                notification.type = NotificationType::kConnectedToDevice;
-                notification.data = nlohmann::json{{"device_id", device_id},
-                                                   {"device_name", it->alias}};
-                IpcEventStream::Instance()->PostNotification(notification);
+                lansend::core::Feedback feedback;
+                feedback.type = lansend::core::FeedbackType::kConnectedToDevice;
+                feedback.data = nlohmann::json{{"device_id", device_id},
+                                               {"device_name", it->alias},
+                                               {"msgId", msgId}};
+                IpcEventStream::Instance()->PostFeedback(feedback);
             } else {
                 std::string message = response_data["message"];
                 spdlog::error("Failed to connect to device: {}", message);
 
                 // 发送错误通知
-                Notification notification;
-                notification.type = NotificationType::kError;
-                notification.data = nlohmann::json{{{"error", message}, {"device_id", device_id}}};
-                IpcEventStream::Instance()->PostNotification(notification);
+                lansend::core::Feedback feedback;
+                feedback.type = lansend::core::FeedbackType::kError;
+                feedback.data = nlohmann::json{
+                    {{"error", message}, {"device_id", device_id}, {"msgId", msgId}}};
+                IpcEventStream::Instance()->PostFeedback(feedback);
             }
         } else {
             spdlog::error("Failed to connect to device, status code: {}", res.result_int());
 
             // 发送错误通知
-            Notification notification;
-            notification.type = NotificationType::kError;
-            notification.data = nlohmann::json{
+            lansend::core::Feedback feedback;
+            feedback.type = lansend::core::FeedbackType::kError;
+            feedback.data = nlohmann::json{
                 {{"error",
                   "Failed to connect to device, status code: " + std::to_string(res.result_int())},
                  {"device_id", device_id}}};
-            IpcEventStream::Instance()->PostNotification(notification);
+            IpcEventStream::Instance()->PostFeedback(feedback);
         }
     } catch (const std::exception& e) {
         spdlog::error("Failed to connect to device, exception: {}", e.what());
 
         // 发送错误通知
-        Notification notification;
-        notification.type = NotificationType::kError;
-        notification.data = nlohmann::json{
+        lansend::core::Feedback feedback;
+        feedback.type = lansend::core::FeedbackType::kError;
+        feedback.data = nlohmann::json{
             {{"error", std::string("Failed to connect to device, exception: ") + e.what()},
              {"device_id", device_id}}};
-        IpcEventStream::Instance()->PostNotification(notification);
+        IpcEventStream::Instance()->PostFeedback(feedback);
     }
 
     co_return;
@@ -677,4 +690,4 @@ boost::asio::awaitable<void> IpcBackendService::handle_exit_app(const nlohmann::
     co_return;
 }
 
-} // namespace lansend
+} // namespace lansend::ipc

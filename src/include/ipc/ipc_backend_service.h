@@ -1,17 +1,17 @@
 #pragma once
-#include "../core/network/client/http_client_service.h"
-#include "../core/network/client/send_session_manager.h"
-#include "../core/network/discovery/discovery_manager.h"
-#include "../core/network/server/http_server.h"
-#include "../core/security/certificate_manager.h"
-#include "../core/util/config.h"
-#include "../core/util/logger.h"
-#include "../ipc/ipc_service.h"
-#include "model/notification.h"
-#include "model/operation.h"
 #include <atomic>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <core/model/feedback/feedback.h>
+#include <core/network/client/http_client_service.h>
+#include <core/network/client/send_session_manager.h>
+#include <core/network/discovery/discovery_manager.h>
+#include <core/network/server/http_server.h>
+#include <core/security/certificate_manager.h>
+#include <core/util/config.h>
+#include <core/util/logger.h>
+#include <ipc/ipc_service.h>
+#include <ipc/model/operation.h>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <thread>
@@ -43,8 +43,8 @@ public:
 private:
     // 事件轮询和处理
     void poll_events();
-    void handle_event(const Notification& notification);
-    void handle_operation(const Operation& operation);
+    void handle_event(const lansend::core::Feedback& feedback);
+    void handle_operation(const lansend::ipc::Operation& operation);
 
     // 操作处理函数
     boost::asio::awaitable<void> handle_send_file(const nlohmann::json& data);
@@ -62,19 +62,19 @@ private:
     std::atomic<bool> running_{false};
 
     // 服务组件
-    std::unique_ptr<DiscoveryManager> discovery_manager_;
-    std::unique_ptr<CertificateManager> cert_manager_;
+    std::unique_ptr<lansend::core::DiscoveryManager> discovery_manager_;
+    std::unique_ptr<lansend::core::CertificateManager> cert_manager_;
     std::unique_ptr<boost::asio::ssl::context> ssl_context_;
-    std::unique_ptr<lansend::HttpServer> http_server_;
+    std::unique_ptr<lansend::core::HttpServer> http_server_;
     // std::unique_ptr<SendSessionManager> send_session_manager_;
-    std::unique_ptr<lansend::IpcService> ipc_service_;
-    std::unique_ptr<lansend::HttpClientService> http_client_service_;
+    std::unique_ptr<lansend::ipc::IpcService> ipc_service_;
+    std::unique_ptr<lansend::core::HttpClientService> http_client_service_;
 
     // 定时器
     boost::asio::steady_timer poll_timer_;
 
     // 配置
-    lansend::Settings& settings_;
+    lansend::core::Settings& settings_;
 };
 
 } // namespace lansend::ipc

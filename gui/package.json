@@ -20,7 +20,7 @@
     "vuetify": "latest"
   },
   "devDependencies": {
-    "electron": "latest",
+    "electron": "^30.0.0",
     "electron-builder": "latest",
     "sass": "latest",
     "vite": "latest"

@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <boost/asio.hpp>
 #include <core/constant/transfer.h>
 #include <core/model.h>
