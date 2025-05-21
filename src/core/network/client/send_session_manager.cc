@@ -45,4 +45,6 @@ void SendSessionManager::CancelSend(const std::string& session_id) {
     }
 }
 
+void SendSessionManager::CancelWaitForConfirmation(std::string_view ip, unsigned short port) {}
+
 } // namespace lansend::core

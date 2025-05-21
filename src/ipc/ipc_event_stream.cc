@@ -1,16 +1,17 @@
-#include "core/model/feedback/feedback.h"
+#include <core/model/feedback.h>
 #include <ipc/ipc_event_stream.h>
 #include <ipc/model.h>
 #include <spdlog/spdlog.h>
 
 namespace lansend::ipc {
 
-using core::Feedback;
+using namespace ipc::operation;
+using Feedback = core::Feedback;
 
 void IpcEventStream::PostOperation(Operation&& operation) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (operation.type == OperationType::kRespondToReceiveRequest) {
-        ConfirmReceiveOperation confirm_receive_operation;
+        ConfirmReceive confirm_receive_operation;
         try {
             nlohmann::from_json(operation.data, confirm_receive_operation);
             confirm_receive_operation_ = std::move(confirm_receive_operation);
@@ -28,7 +29,7 @@ void IpcEventStream::PostOperation(Operation&& operation) {
 void IpcEventStream::PostOperation(const Operation& operation) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (operation.type == OperationType::kRespondToReceiveRequest) {
-        ConfirmReceiveOperation confirm_receive_operation;
+        ConfirmReceive confirm_receive_operation;
         try {
             nlohmann::from_json(operation.data, confirm_receive_operation);
             confirm_receive_operation_ = std::move(confirm_receive_operation);
@@ -61,12 +62,11 @@ std::optional<Operation> IpcEventStream::PollActiveOperation() {
     return op;
 }
 
-std::optional<ConfirmReceiveOperation> IpcEventStream::PollConfirmReceiveOperation() {
-    std::lock_guard<std::mutex> lock(mutex_);
+std::optional<ConfirmReceive> IpcEventStream::PollConfirmReceiveOperation() {
     if (!confirm_receive_operation_) {
         return std::nullopt;
     }
-    ConfirmReceiveOperation operation = *confirm_receive_operation_;
+    ConfirmReceive operation = *confirm_receive_operation_;
     confirm_receive_operation_ = std::nullopt;
     return operation;
 }

@@ -19,9 +19,9 @@ namespace lansend::core {
 using SessionStartedCallback = std::function<void()>;
 using SessionCleanupCallback = std::function<void()>;
 
-using FeedbackCallback = std::function<void(const nlohmann::json& message)>;
-
 class SendSession {
+    friend class SendSessionManager;
+
 public:
     SendSession(boost::asio::io_context& ioc, CertificateManager& cert_manager);
     ~SendSession() = default;

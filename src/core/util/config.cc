@@ -18,11 +18,6 @@ static void LoadSetting() {
     }
     auto& setting = config["setting"].ref<toml::table>();
 
-    if (setting.contains("alias")) {
-        settings.alias = setting["alias"].value_or("");
-    } else {
-        settings.alias = "LanSend";
-    }
     if (setting.contains("port")) {
         settings.port = setting["port"].value_or(56789);
     } else {
@@ -80,10 +75,9 @@ void SaveConfig() {
     }
     config.insert_or_assign("setting",
                             toml::table{
-                                {"alias", settings.alias},
                                 {"port", settings.port},
-                                {"auth-code", settings.pin_code},
-                                {"auto-save", settings.auto_receive},
+                                {"pin-code", settings.pin_code},
+                                {"auto-receive", settings.auto_receive},
                                 {"save-dir", settings.save_dir.string()},
                             });
     ofs << config;

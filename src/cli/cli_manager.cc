@@ -17,10 +17,14 @@
 
 // CliManager::~CliManager() = default;
 
-// void CliManager::process_command(const std::string& command) {
-//     auto args = parse_command(command);
-//     execute_command(args);
-// }
+void CliManager::process_command(const std::string& command) {
+    auto args = parse_command(command);
+    execute_command(args);
+}
+void CliManager::process_command(const std::string& command) {
+    auto args = parse_command(command);
+    execute_command(args);
+}
 
 // void CliManager::start_interactive_mode() {
 //     terminal_->ClearScreen();
@@ -36,28 +40,22 @@
 
 // void CliManager::handle_list_devices() {
 //     try {
-//         auto devices = discovery_manager_.GetDevices();
-//         print_device_list(devices);
+//         auto transfers = http_client_service_.get_active_transfers();
+//         print_transfer_list(transfers);
+//         auto transfers = http_client_service_.get_active_transfers();
+//         print_transfer_list(transfers);
 //     } catch (const std::exception& e) {
-//         terminal_->PrintError("Failed to list devices: " + std::string(e.what()));
+//         terminal_->print_error("Failed to show transfers: " + std::string(e.what()));
+//         terminal_->print_error("Failed to show transfers: " + std::string(e.what()));
 //     }
 // }
 
-// void CliManager::handle_send_file(const std::string& alias,
-//                                   const std::vector<std::filesystem::path>& filepaths) {
-//     std::vector<std::filesystem::path> valid_file_paths;
-//     for (const auto& filepath : filepaths) {
-//         if (!fs::exists(filepath)) {
-//             terminal_->PrintError("file not exist: " + filepath.string());
-//             continue;
-//         }
-//         valid_file_paths.emplace_back(filepath);
-//     }
-
-//     if (valid_file_paths.empty()) {
-//         terminal_->PrintError("No valid files to send.");
-//         return;
-//     }
+// void CliManager::handle_cancel_transfer(uint64_t transfer_id) {
+//     try {
+//         http_client_service_.cancel_transfer(transfer_id);
+//         terminal_->print_info("success cancel transfer，transfer ID: " + std::to_string(transfer_id));
+//     } catch (const std::exception& e) {
+//         terminal_->print_error("fail cancel transfer: " + std::string(e.what()));
 //     try {
 //         auto devices = discovery_manager_.GetDevices();
 //         auto it = devices.end();
@@ -143,15 +141,14 @@
 //     }
 // }
 
-// void CliManager::print_device_list(const std::vector<DeviceInfo>& devices) {
-//     terminal_->PrintInfo("device list:");
-//     for (const auto& device : devices) {
-//         std::ostringstream oss;
-//         oss << "ID: " << device.device_id << " | alias: " << device.alias
-//             << " | IP: " << device.ip_address;
-//         terminal_->PrintInfo(oss.str());
-//     }
-// }
+void CliManager::print_device_list(const std::vector<DeviceInfo>& devices) {
+    terminal_->PrintInfo("device list:");
+    for (const auto& device : devices) {
+        std::ostringstream oss;
+        oss << "ID: " << device.device_id << " | IP: " << device.ip_address;
+        terminal_->PrintInfo(oss.str());
+    }
+}
 
 // void CliManager::print_help() {
 //     terminal_->PrintInfo("Available commands are as follows:");
@@ -162,4 +159,4 @@
 //     terminal_->PrintInfo("  clear - Clear the screen");
 // }
 
-// } // namespace lansend::cli
+} // namespace lansend::cli

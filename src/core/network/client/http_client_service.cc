@@ -22,6 +22,10 @@ HttpClientService::HttpClientService(boost::asio::io_context& ioc,
     // Constructor implementation
 }
 
+void HttpClientService::SetFeedbackCallback(FeedbackCallback callback) {
+    callback_ = callback;
+}
+
 void HttpClientService::Ping(std::string_view host, unsigned short port) {
     auto client_ptr = std::make_shared<HttpsClient>(ioc_, cert_manager_);
     net::co_spawn(
@@ -38,40 +42,42 @@ void HttpClientService::Ping(std::string_view host, unsigned short port) {
 
                     auto res = co_await client_ptr->SendRequest(req);
                     if (res.result() == http::status::ok) {
-                        if (callback_) {
-                            callback_(res.body());
-                        }
+                        // if (callback_) {
+                        //     // callback_(res.body());
+                        // }
                     } else {
-                        if (callback_) {
-                            callback_(std::string("Ping failed: ") + res.body());
-                        }
+                        // if (callback_) {
+                        //     // callback_(std::string("Ping failed: ") + res.body());
+                        // }
                     }
                     co_await client_ptr->Disconnect();
                 } else {
-                    if (callback_) {
-                        callback_(std::string("Connection failed"));
-                    }
+                    // if (callback_) {
+                    //     // callback_(std::string("Connection failed"));
+                    // }
                 }
             } catch (const std::exception& e) {
-                if (callback_) {
-                    callback_(std::string("Error: ") + e.what());
-                }
+                // if (callback_) {
+                //     // callback_(std::string("Error: ") + e.what());
+                // }
             }
         },
         net::detached);
 }
 
-void HttpClientService::ConnectDevice(const std::string& pin_code, const DeviceInfo& device_info) {
+void HttpClientService::ConnectDevice(std::string_view pin_code,
+                                      std::string_view ip,
+                                      unsigned short port) {
     auto client_ptr = std::make_shared<HttpsClient>(ioc_, cert_manager_);
     net::co_spawn(
         ioc_,
         [&]() -> net::awaitable<void> {
             try {
-                co_await client_ptr->Connect("localhost", device_info.port);
+                co_await client_ptr->Connect(ip, port);
                 if (client_ptr->IsConnected()) {
                     json data;
                     data["pin_code"] = pin_code;
-                    data["device_info"] = device_info;
+                    data["device_info"] = DeviceInfo::LocalDeviceInfo();
 
                     auto req = client_ptr->CreateRequest<http::string_body>(http::verb::post,
                                                                             ApiRoute::kConnect.data(),
@@ -81,23 +87,23 @@ void HttpClientService::ConnectDevice(const std::string& pin_code, const DeviceI
 
                     auto res = co_await client_ptr->SendRequest(req);
                     if (res.result() == http::status::ok) {
-                        if (callback_) {
-                            callback_(res.body());
-                        }
+                        // if (callback_) {
+                        //     callback_(res.body());
+                        // }
                     } else {
-                        if (callback_) {
-                            callback_(std::string("Connection failed: ") + res.body());
-                        }
+                        // if (callback_) {
+                        //     callback_(std::string("Connection failed: ") + res.body());
+                        // }
                     }
                     co_await client_ptr->Disconnect();
                 } else {
-                    if (callback_) {
-                        callback_(std::string("Connection failed"));
-                    }
+                    // if (callback_) {
+                    //     callback_(std::string("Connection failed"));
+                    // }
                 }
             } catch (const std::exception& e) {
                 if (callback_) {
-                    callback_(std::string("Error: ") + e.what());
+                    // callback_(std::string("Error: ") + e.what());
                 }
             }
         },
@@ -114,5 +120,7 @@ void HttpClientService::SendFiles(std::string_view ip_address,
 void HttpClientService::CancelSend(const std::string& session_id) {
     send_session_manager_.CancelSend(session_id);
 }
+
+void HttpClientService::CancelWaitForConfirmation(std::string_view ip, unsigned short port) {}
 
 } // namespace lansend::core

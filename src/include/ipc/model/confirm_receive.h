@@ -6,13 +6,13 @@
 #include <optional>
 #include <string>
 
-namespace lansend::ipc {
+namespace lansend::ipc::operation {
 
-struct ConfirmReceiveOperation {
+struct ConfirmReceive {
     bool accepted;
     std::optional<std::vector<std::string>> accepted_files;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(ConfirmReceiveOperation, accepted, accepted_files);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(ConfirmReceive, accepted, accepted_files);
 };
 
-} // namespace lansend::ipc
+} // namespace lansend::ipc::operation

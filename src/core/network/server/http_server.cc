@@ -1,4 +1,5 @@
 
+#include "core/security/open_ssl_provider.h"
 #include "spdlog/spdlog.h"
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
@@ -27,19 +28,23 @@ namespace net = boost::asio;
 namespace ssl = net::ssl;
 using tcp = net::ip::tcp;
 
-HttpServer::HttpServer(net::io_context& io_context, ssl::context& ssl_context)
+HttpServer::HttpServer(boost::asio::io_context& io_context, CertificateManager& cert_manager)
     : io_context_(io_context)
-    , ssl_context_(ssl_context)
+    , cert_manager_(cert_manager)
+    , ssl_context_(nullptr)
     , acceptor_(io_context)
     , running_(false) {
     common_controller_ = std::make_unique<CommonController>(*this);
     receive_controller_ = std::make_unique<ReceiveController>(*this);
+    auto security_context = cert_manager_.security_context();
+    ssl_context_ = OpenSSLProvider::BuildServerContext(security_context.certificate_pem,
+                                                       security_context.private_key_pem);
     spdlog::info("HttpServer created.");
 }
 
 HttpServer::~HttpServer() {
     if (running_) {
-        stop();
+        Stop();
     }
     spdlog::info("HttpServer destroyed.");
 }
@@ -58,7 +63,7 @@ void HttpServer::AddRoute(const std::string& path,
     spdlog::info(std::format("Added route: {} {}", std::string(http::to_string(method)), path));
 }
 
-void HttpServer::start(uint16_t port) {
+void HttpServer::Start(uint16_t port) {
     if (running_) {
         spdlog::warn("Server is already running.");
         return;
@@ -84,7 +89,20 @@ void HttpServer::start(uint16_t port) {
     }
 }
 
-void HttpServer::stop() {
+void HttpServer::SetFeedbackCallback(FeedbackCallback callback) {
+    common_controller_->SetFeedbackCallback(callback);
+    receive_controller_->SetFeedbackCallback(callback);
+}
+
+void HttpServer::SetReceiveWaitConditionFunc(ReceiveWaitConditionFunc func) {
+    receive_controller_->SetWaitConditionFunc(func);
+}
+
+void HttpServer::SetReceiveCancelConditionFunc(ReceiveCancelConditionFunc func) {
+    receive_controller_->SetCancelConditionFunc(func);
+}
+
+void HttpServer::Stop() {
     if (!running_) {
         return;
     }
@@ -223,7 +241,7 @@ boost::asio::awaitable<void> HttpServer::handleConnection(ssl::stream<beast::tcp
                 }
             } catch (const boost::system::system_error& e) {
                 // Notify the receiver if the sender is lost
-                if (receive_controller_->session_status() == ReceiveSessionStatus::kReceiving) {
+                if (receive_controller_->session_status() == ReceiveSessionStatus::kWorking) {
                     if (receive_controller_->sender_ip() == endpoint_ip_str
                         && receive_controller_->sender_port() == endpoint.port()) {
                         spdlog::error("Lost connection to sender {}:{} while receiving file",

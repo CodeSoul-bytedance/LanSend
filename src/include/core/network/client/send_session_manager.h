@@ -3,11 +3,10 @@
 #include "send_session.h"
 #include <boost/asio/io_context.hpp>
 #include <core/security/certificate_manager.h>
+#include <string>
 #include <unordered_map>
 
 namespace lansend::core {
-
-using FeedbackCallback = std::function<void(const nlohmann::json&)>;
 
 class SendSessionManager {
 public:
@@ -21,6 +20,8 @@ public:
                    const std::vector<std::filesystem::path>& file_paths);
 
     void CancelSend(const std::string& session_id);
+
+    void CancelWaitForConfirmation(std::string_view ip, unsigned short port);
 
 private:
     void addSendSession(std::shared_ptr<SendSession> session) {

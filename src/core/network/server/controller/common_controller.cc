@@ -1,4 +1,5 @@
 #include "core/model/device_info.h"
+#include "core/model/feedback.h"
 #include <boost/beast/http/string_body_fwd.hpp>
 #include <core/constant/route.h>
 #include <core/model.h>
@@ -14,8 +15,13 @@ using json = nlohmann::json;
 
 namespace lansend::core {
 
-CommonController::CommonController(HttpServer& server) {
+CommonController::CommonController(HttpServer& server, FeedbackCallback callback)
+    : feedback_callback_(callback) {
     InstallRoutes(server);
+}
+
+void CommonController::SetFeedbackCallback(FeedbackCallback callback) {
+    feedback_callback_ = callback;
 }
 
 net::awaitable<http::response<http::string_body>> CommonController::onPing(

@@ -9,6 +9,7 @@
 #include <core/network/discovery/discovery_manager.h>
 #include <random>
 #include <spdlog/spdlog.h>
+#include <string>
 
 using namespace boost::asio;
 using json = nlohmann::json;
@@ -25,7 +26,7 @@ DiscoveryManager::DiscoveryManager(io_context& ioc)
     device_found_callback_(
         [](const DeviceInfo& device) { spdlog::info("Device found:{}", device.device_id); })
     , device_lost_callback_(
-          [](const std::string& device_id) { spdlog::info("Device lost:{}", device_id); }) {
+          [](std::string_view device_id) { spdlog::info("Device lost:{}", device_id); }) {
     device_id_ = generateDeviceId();
     spdlog::info("discovery_manager created.");
 }
@@ -121,7 +122,7 @@ void DiscoveryManager::SetDeviceFoundCallback(std::function<void(const DeviceInf
     device_found_callback_ = callback;
 }
 
-void DiscoveryManager::SetDeviceLostCallback(std::function<void(const std::string&)> callback) {
+void DiscoveryManager::SetDeviceLostCallback(std::function<void(std::string_view)> callback) {
     device_lost_callback_ = callback;
 }
 

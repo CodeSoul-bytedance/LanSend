@@ -20,12 +20,13 @@ CertificateManager::CertificateManager(const fs::path& certDir)
     }
 
     OpenSSLProvider::InitOpenSSL();
+    initSecurityContext();
 
     trusted_fingerprints_path_ = certificate_dir_ / "trusted_fingerprints.json";
     loadTrustedFingerprints();
 }
 
-bool CertificateManager::InitSecurityContext() {
+bool CertificateManager::initSecurityContext() {
     if (loadSecurityContext()) {
         spdlog::info("Loaded existing certificate with fingerprint: {}",
                      security_context_.certificate_hash);

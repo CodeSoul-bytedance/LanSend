@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
         device_found = true;
     });
     // 设置设备丢失回调函数
-    manager.SetDeviceLostCallback([&device_lost](const std::string& device_id) {
+    manager.SetDeviceLostCallback([&device_lost](std::string_view device_id) {
         std::cout << "Device lost: " << device_id << std::endl;
         device_lost = true;
     });

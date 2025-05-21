@@ -12,8 +12,6 @@ class CertificateManager {
 public:
     CertificateManager(const std::filesystem::path& certDir);
 
-    bool InitSecurityContext();
-
     const SecurityContext& security_context() const;
 
     static std::string CalculateCertificateHash(const std::string& certificatePem);
@@ -27,6 +25,8 @@ public:
     bool TrustCertificate(const std::string& certificatePem);
 
 private:
+    bool initSecurityContext();
+
     bool generateSelfSignedCertificate();
 
     bool saveSecurityContext();

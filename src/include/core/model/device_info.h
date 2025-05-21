@@ -9,7 +9,6 @@ namespace lansend::core {
 
 struct DeviceInfo {
     std::string device_id;        // 唯一ID
-    std::string alias;            // 设备昵称
     std::string hostname;         // 主机名
     std::string operating_system; // 操作系统
     std::string ip_address;
@@ -18,7 +17,6 @@ struct DeviceInfo {
     static auto& LocalDeviceInfo() {
         static DeviceInfo local_device_info = []() {
             DeviceInfo info;
-            info.alias = settings.alias;
             info.hostname = system::Hostname();
             info.operating_system = system::OperatingSystem();
             info.ip_address = "127.0.0.1";
@@ -32,9 +30,6 @@ struct DeviceInfo {
 
             return info;
         }();
-        if (local_device_info.alias != settings.alias) {
-            local_device_info.alias = settings.alias;
-        }
         auto addr = system::PublicIpv4Address();
         if (local_device_info.ip_address != addr) {
             local_device_info.ip_address = addr;
@@ -47,7 +42,7 @@ struct DeviceInfo {
 
     // 序列化/反序列化函数
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(
-        DeviceInfo, device_id, alias, hostname, operating_system, ip_address, port)
+        DeviceInfo, device_id, hostname, operating_system, ip_address, port)
 };
 
 } // namespace lansend::core

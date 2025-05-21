@@ -1,80 +1,80 @@
 #pragma once
-#include <atomic>
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
-#include <core/model/feedback/feedback.h>
-#include <core/network/client/http_client_service.h>
-#include <core/network/client/send_session_manager.h>
-#include <core/network/discovery/discovery_manager.h>
-#include <core/network/server/http_server.h>
-#include <core/security/certificate_manager.h>
-#include <core/util/config.h>
-#include <core/util/logger.h>
-#include <ipc/ipc_service.h>
-#include <ipc/model/operation.h>
-#include <memory>
-#include <nlohmann/json.hpp>
-#include <thread>
 
+#include "core/network/client/http_client_service.h"
+#include "core/network/discovery/discovery_manager.h"
+#include "core/network/server/http_server.h"
+#include "core/security/certificate_manager.h"
+#include "ipc_event_stream.h"
+#include "model.h"
+#include <boost/asio/io_context.hpp>
+#include <nlohmann/json_fwd.hpp>
+#include <string>
+
+/**
+ * @brief IPC后端服务类
+ * 
+ * @details 集成了lansend的所有基本功能。该服务负责从IpcEventStream轮询事件并处理它们，
+ * 同时将反馈（通知）发送回IpcEventStream。IpcBackendService充当底层功能和IPC通信层之间的
+ * 中间件，处理如文件发送、设置修改、设备连接等操作。
+ * 
+ * 该类管理以下组件：
+ * - 证书管理器（certificate manager）
+ * - 设备发现管理器（discovery manager）
+ * - HTTPS客户端服务
+ * - HTTPS服务器
+ * 
+ * @note 此类不可复制或赋值。
+ */
 namespace lansend::ipc {
 
-// all basic functions of lansend intergrated
-// poll events from IpcEventStream and handling them
-// post feedback(notification) to IpcEventStream
 class IpcBackendService {
 public:
-    IpcBackendService();
-    ~IpcBackendService();
-
-    // 禁止拷贝和赋值
+    IpcBackendService(boost::asio::io_context& ioc, IpcEventStream& event_stream);
+    ~IpcBackendService() = default;
     IpcBackendService(const IpcBackendService&) = delete;
     IpcBackendService& operator=(const IpcBackendService&) = delete;
 
-    // 启动和停止服务
-    void start(const std::string& stdin_pipe_name, const std::string& stdout_pipe_name);
-    void stop();
+    void Start();
+    void Stop();
 
-    // 获取单例实例
-    static IpcBackendService* Instance() {
-        static IpcBackendService instance;
-        return &instance;
-    }
+    void SetExitAppCallback(std::function<void()>&& callback);
 
 private:
-    // 事件轮询和处理
-    void poll_events();
-    void handle_event(const lansend::core::Feedback& feedback);
-    void handle_operation(const lansend::ipc::Operation& operation);
+    boost::asio::io_context& ioc_;
+    IpcEventStream& event_stream_;
+    core::CertificateManager cert_manager_;
+    core::DiscoveryManager discovery_manager_;
+    core::HttpClientService http_client_service_;
+    core::HttpServer http_server_;
+    std::function<void()> exit_app_callback_ = nullptr;
+    bool is_running_{false};
 
-    // 操作处理函数
-    boost::asio::awaitable<void> handle_send_file(const nlohmann::json& data);
-    boost::asio::awaitable<void> handle_cancel_wait_for_confirmation(const nlohmann::json& data);
-    boost::asio::awaitable<void> handle_cancel_send(const nlohmann::json& data);
-    boost::asio::awaitable<void> handle_respond_to_receive_request(const nlohmann::json& data);
-    boost::asio::awaitable<void> handle_cancel_receive(const nlohmann::json& data);
-    boost::asio::awaitable<void> handle_modify_settings(const nlohmann::json& data);
-    boost::asio::awaitable<void> handle_connect_to_device(const nlohmann::json& data);
-    boost::asio::awaitable<void> handle_exit_app(const nlohmann::json& data);
+    // 协程任务，开启服务
+    boost::asio::awaitable<void> start();
 
-    // 核心组件
-    boost::asio::io_context io_context_;
-    std::thread io_thread_;
-    std::atomic<bool> running_{false};
+    // 分发处理轮询到的Electron端的用户操作
+    void dispatchOperation(const Operation& operation);
 
-    // 服务组件
-    std::unique_ptr<lansend::core::DiscoveryManager> discovery_manager_;
-    std::unique_ptr<lansend::core::CertificateManager> cert_manager_;
-    std::unique_ptr<boost::asio::ssl::context> ssl_context_;
-    std::unique_ptr<lansend::core::HttpServer> http_server_;
-    // std::unique_ptr<SendSessionManager> send_session_manager_;
-    std::unique_ptr<lansend::ipc::IpcService> ipc_service_;
-    std::unique_ptr<lansend::core::HttpClientService> http_client_service_;
+    // 发送文件
+    void sendFiles(const operation::SendFiles& send_file);
 
-    // 定时器
-    boost::asio::steady_timer poll_timer_;
+    // 修改设置
+    void modifySettings(std::string_view key, nlohmann::json value);
 
-    // 配置
-    lansend::core::Settings& settings_;
+    // 取消等待确认
+    void cancelWaitForConfirmation(const std::string& device_id);
+
+    // 取消发送
+    void cancelSend(const std::string& session_id);
+
+    // 连接到设备
+    void connectToDevice(const std::string& device_id, std::string_view pin_code);
+
+    // 退出应用程序
+    void exitApp();
+
+    // 反馈给前端
+    void feedback(const core::Feedback& feedback) { event_stream_.PostFeedback(feedback); }
 };
 
 } // namespace lansend::ipc

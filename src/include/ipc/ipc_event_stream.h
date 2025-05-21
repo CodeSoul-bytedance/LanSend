@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/model/feedback/feedback.h"
 #include <core/model/feedback.h>
 #include <deque>
 #include <ipc/model.h>
@@ -19,7 +18,7 @@ public:
     void PostFeedback(const Feedback& feedback);
 
     std::optional<Operation> PollActiveOperation();
-    std::optional<ConfirmReceiveOperation> PollConfirmReceiveOperation();
+    std::optional<operation::ConfirmReceive> PollConfirmReceiveOperation();
     bool PollCancelReceiveOperation();
     std::optional<Feedback> PollFeedback();
 
@@ -34,7 +33,7 @@ private:
     std::deque<Operation> active_operations_;
 
     // for confirm receive operations polling in ReceiveController
-    std::optional<ConfirmReceiveOperation> confirm_receive_operation_;
+    std::optional<operation::ConfirmReceive> confirm_receive_operation_;
 
     // for cancel receive operations polling in ReceiveController
     bool cancel_receive_operation_{false};

@@ -14,13 +14,11 @@
 
     Application settings:
     - Read a setting:
-        std::string alias = lansend::settings.alias;
         std::uint16_t port = lansend::settings.port;
         std::string pin_code = lansend::settings.pin_code;
         bool auto_receive = lansend::settings.auto_receive;
         std::filesystem::path saveDir = lansend::settings.saveDir;
     - Write a setting:
-        lansend::settings.alias = "new_alias";
         lansend::settings.port = 9999;
         lansend::settings.pin_code = "new_pin_code";
         lansend::settings.auto_receive = true;
@@ -28,9 +26,9 @@
 
     Initialization and saving:
     - Initialize the configuration (loads from file or creates default):
-        lansend::initConfig();
+        lansend::InitConfig();
     - Save the current configuration to file:
-        lansend::saveConfig();
+        lansend::SaveConfig();
 */
 
 #pragma once
@@ -44,15 +42,10 @@ namespace lansend::core {
 inline toml::table config;
 
 struct Settings {
-    std::string device_id;
-    std::string alias;              // Display name
     std::uint16_t port;             // Server port
     std::string pin_code;           // Pin Code for other devices to connect
     bool auto_receive;              // Whether to automatically receive files from other devices
     std::filesystem::path save_dir; // Directory to save files from other devices
-    std::filesystem::path metadataStoragePath;
-    uint64_t chunkSize;
-    bool https = true; // Whether to use HTTPS instead of HTTP
 };
 
 inline Settings settings;

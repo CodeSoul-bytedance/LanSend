@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/security/certificate_manager.h"
 #include <boost/asio.hpp>
 #include <chrono>
 #include <core/model.h>
@@ -36,7 +37,7 @@ public:
 
     // 为Electron预留的事件接口
     void SetDeviceFoundCallback(std::function<void(const DeviceInfo&)> callback);
-    void SetDeviceLostCallback(std::function<void(const std::string&)> callback);
+    void SetDeviceLostCallback(std::function<void(std::string_view)> callback);
 
 private:
     std::mutex devices_mutex_;
@@ -44,8 +45,8 @@ private:
     std::string device_id_;
 
     std::unordered_map<std::string, DeviceEntry> discovered_devices_;
-    std::function<void(const DeviceInfo&)> device_found_callback_;
-    std::function<void(const std::string&)> device_lost_callback_;
+    std::function<void(const DeviceInfo&)> device_found_callback_ = nullptr;
+    std::function<void(std::string_view)> device_lost_callback_ = nullptr;
 
     // UDP相关
     boost::asio::ip::udp::socket broadcast_socket_;
