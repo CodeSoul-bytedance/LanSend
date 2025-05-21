@@ -1,5 +1,5 @@
 /*
-    config.hpp
+    config.h
     This header provides functionality for managing application configuration
     using TOML files. It includes utilities for reading and writing general
     configuration values as well as specific application settings.
@@ -16,15 +16,15 @@
     - Read a setting:
         std::string alias = lansend::settings.alias;
         std::uint16_t port = lansend::settings.port;
-        std::string authCode = lansend::settings.authCode;
-        bool autoSave = lansend::settings.autoSave;
+        std::string pin_code = lansend::settings.pin_code;
+        bool auto_receive = lansend::settings.auto_receive;
         std::filesystem::path saveDir = lansend::settings.saveDir;
     - Write a setting:
         lansend::settings.alias = "new_alias";
         lansend::settings.port = 9999;
-        lansend::settings.authCode = "new_auth_code";
-        lansend::settings.autoSave = true;
-        lansend::settings.saveDir = "/path/to/save";
+        lansend::settings.pin_code = "new_pin_code";
+        lansend::settings.auto_receive = true;
+        lansend::settings.save_dir = "/path/to/save";
 
     Initialization and saving:
     - Initialize the configuration (loads from file or creates default):
@@ -39,17 +39,17 @@
 #include <string>
 #include <toml++/toml.h>
 
-namespace lansend {
+namespace lansend::core {
 
 inline toml::table config;
 
 struct Settings {
     std::string device_id;
-    std::string alias;             // Display name
-    std::uint16_t port;            // Server port
-    std::string authCode;          // Authentication Code for other devices to connect
-    bool autoSave;                 // Whether to automatically save files from other devices
-    std::filesystem::path saveDir; // Directory to save files from other devices
+    std::string alias;              // Display name
+    std::uint16_t port;             // Server port
+    std::string pin_code;           // Pin Code for other devices to connect
+    bool auto_receive;              // Whether to automatically receive files from other devices
+    std::filesystem::path save_dir; // Directory to save files from other devices
     std::filesystem::path metadataStoragePath;
     uint64_t chunkSize;
     bool https = true; // Whether to use HTTPS instead of HTTP
@@ -57,8 +57,8 @@ struct Settings {
 
 inline Settings settings;
 
-void init_config();
+void InitConfig();
 
-void save_config();
+void SaveConfig();
 
-} // namespace lansend
+} // namespace lansend::core

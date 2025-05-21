@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-namespace lansend {
+namespace lansend::core {
 
 class ApiRoute {
 public:
@@ -14,4 +14,4 @@ public:
     static constexpr std::string_view kCancelSend = "/cancel-send";
 };
 
-} // namespace lansend
+} // namespace lansend::core

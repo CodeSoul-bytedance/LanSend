@@ -2,7 +2,7 @@
 #include <core/security/open_ssl_provider.h>
 #include <fstream>
 
-namespace lansend {
+namespace lansend::core {
 
 std::string FileHasher::CalculateFileChecksum(const std::filesystem::path& file_path) {
     std::ifstream file(file_path, std::ios::binary);
@@ -56,4 +56,8 @@ std::string FileHasher::CalculateDataChecksum(const BinaryData& data) {
     return ss.str();
 }
 
-} // namespace lansend
+FileHasher::FileHasher() {
+    OpenSSLProvider::InitOpenSSL();
+}
+
+} // namespace lansend::core

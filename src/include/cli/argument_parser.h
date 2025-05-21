@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+namespace lansend::cli {
+
 struct CliOptions {
     std::optional<uint16_t> port;
     std::optional<std::string> config_path;
@@ -36,3 +38,5 @@ private:
     // 参数验证
     bool validateOptions(const CliOptions& options);
 };
+
+} // namespace lansend::cli

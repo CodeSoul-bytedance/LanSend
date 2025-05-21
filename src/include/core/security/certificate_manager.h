@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_set>
 
-namespace lansend {
+namespace lansend::core {
 
 class CertificateManager {
 public:
@@ -46,4 +46,4 @@ private:
     static constexpr int kCertValidityDays = 3650;
 };
 
-} // namespace lansend
+} // namespace lansend::core

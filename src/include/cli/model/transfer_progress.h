@@ -3,8 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-namespace lansend {
-namespace models {
+namespace lansend::cli {
 
 struct TransferProgress {
     uint64_t transfer_id;
@@ -36,5 +35,4 @@ struct TransferProgress {
         TransferProgress, transfer_id, filename, bytes_transferred, total_bytes, percentage);
 };
 
-} // namespace models
-} // namespace lansend
+} // namespace lansend::cli

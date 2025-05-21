@@ -4,7 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-namespace lansend {
+namespace lansend::core {
 
 struct FileDto {
     std::string file_id;       // 文件唯一标识符
@@ -19,4 +19,4 @@ struct FileDto {
         FileDto, file_id, file_name, file_size, chunk_size, total_chunks, file_checksum, file_type);
 };
 
-} // namespace lansend
+} // namespace lansend::core

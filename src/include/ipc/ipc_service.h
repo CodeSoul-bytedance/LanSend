@@ -17,7 +17,7 @@ namespace lansend {
 
 // receive events from the frontend application, post them to IpcEventStream
 // poll notifications from IpcEventStream, send them to the frontend application
-class IpcService {
+class IpcService::ipc {
 public:
     // 消息处理器类型（接收JSON消息，返回JSON响应）
     using MessageHandler

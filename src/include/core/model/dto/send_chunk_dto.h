@@ -3,7 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-namespace lansend {
+namespace lansend::core {
 
 struct SendChunkDto {
     std::string session_id;     // 会话唯一标识符
@@ -16,4 +16,4 @@ struct SendChunkDto {
         SendChunkDto, session_id, file_id, file_token, current_chunk_index, chunk_checksum);
 };
 
-} // namespace lansend
+} // namespace lansend::core

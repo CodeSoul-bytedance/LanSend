@@ -2,7 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace lansend {
+namespace lansend::ipc {
 
 enum class OperationType {
     kSendFile,                  // 发送者要求向别人发送文件
@@ -28,4 +28,4 @@ NLOHMANN_JSON_SERIALIZE_ENUM(OperationType,
                                  {OperationType::kExitApp, "ExitApp"},
                              });
 
-} // namespace lansend
+} // namespace lansend::ipc

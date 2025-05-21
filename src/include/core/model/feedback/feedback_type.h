@@ -2,9 +2,9 @@
 
 #include <nlohmann/json.hpp>
 
-namespace lansend {
+namespace lansend::core {
 
-enum class NotificationType {
+enum class FeedbackType {
     kError,             // 普通错误通知，包含错误信息 error 和各种错误的附加数据data（一个json对象）
     kFoundDevice,       // 发现了新的设备 （设备完整信息）
     kLostDevice,        // 失去了一个设备（设备下线，只包含设备的device_id）
@@ -26,24 +26,24 @@ enum class NotificationType {
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(
-    NotificationType,
+    FeedbackType,
     {
-        {NotificationType::kError, "Error"},
-        {NotificationType::kFoundDevice, "FoundDevice"},
-        {NotificationType::kLostDevice, "LostDevice"},
-        {NotificationType::kSettings, "Settings"},
-        {NotificationType::kConnectedToDevice, "ConnectedToDevice"},
-        {NotificationType::kRecipientAccepted, "RecipientAccepted"},
-        {NotificationType::kRecipientDeclined, "RecipientDeclined"},
-        {NotificationType::kFileSendingProgress, "FileSendingProgress"},
-        {NotificationType::kFileSendingCompleted, "FileSendingCompleted"},
-        {NotificationType::kAllSendingCompleted, "AllSendingCompleted"},
-        {NotificationType::kRequestReceiveFiles, "RequestReceiveFiles"},
-        {NotificationType::kFileReceivingProgress, "FileReceivingProgress"},
-        {NotificationType::kFileReceivingCompleted, "FileReceivingCompleted"},
-        {NotificationType::kAllReceivingCompleted, "AllReceivingCompleted"},
-        {NotificationType::kSendingCancelledByReceiver, "SendingCancelledByReceiver"},
-        {NotificationType::kReceivingCancelledBySender, "ReceivingCancelledBySender"},
+        {FeedbackType::kError, "Error"},
+        {FeedbackType::kFoundDevice, "FoundDevice"},
+        {FeedbackType::kLostDevice, "LostDevice"},
+        {FeedbackType::kSettings, "Settings"},
+        {FeedbackType::kConnectedToDevice, "ConnectedToDevice"},
+        {FeedbackType::kRecipientAccepted, "RecipientAccepted"},
+        {FeedbackType::kRecipientDeclined, "RecipientDeclined"},
+        {FeedbackType::kFileSendingProgress, "FileSendingProgress"},
+        {FeedbackType::kFileSendingCompleted, "FileSendingCompleted"},
+        {FeedbackType::kAllSendingCompleted, "AllSendingCompleted"},
+        {FeedbackType::kRequestReceiveFiles, "RequestReceiveFiles"},
+        {FeedbackType::kFileReceivingProgress, "FileReceivingProgress"},
+        {FeedbackType::kFileReceivingCompleted, "FileReceivingCompleted"},
+        {FeedbackType::kAllReceivingCompleted, "AllReceivingCompleted"},
+        {FeedbackType::kSendingCancelledByReceiver, "SendingCancelledByReceiver"},
+        {FeedbackType::kReceivingCancelledBySender, "ReceivingCancelledBySender"},
     });
 
-} // namespace lansend
+} // namespace lansend::core

@@ -4,21 +4,18 @@
 #include <cstdint>
 #include <string>
 
-// struct TransferProgress {
-//     uint64_t transfer_id;
-//     uint64_t bytes_transferred;
-//     uint64_t total_bytes;
-//     double speed; // bytes per second
-// };
+namespace lansend::cli {
 
 class ProgressDisplay {
 public:
     ProgressDisplay();
     ~ProgressDisplay();
 
-    void UpdateProgress(const lansend::models::TransferProgress& progress);
+    void UpdateProgress(const TransferProgress& progress);
     void ClearProgress();
 
 private:
-    void printProgress(const lansend::models::TransferProgress& progress);
+    void printProgress(const TransferProgress& progress);
 };
+
+} // namespace lansend::cli

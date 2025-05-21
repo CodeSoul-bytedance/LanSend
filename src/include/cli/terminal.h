@@ -8,22 +8,24 @@
 #include <termios.h>
 #endif
 
+namespace lansend::cli {
+
 class Terminal {
 public:
     Terminal();
     ~Terminal();
 
-    void clear_screen();
-    void set_cursor_position(int x, int y);
-    std::string read_line();
-    bool is_key_pressed();
+    void ClearScreen();
+    void SetCursorPosition(int x, int y);
+    std::string ReadLine();
+    bool IsKeyPressed();
 
-    void print_info(const std::string& message);
-    void print_error(const std::string& message);
-    void print_prompt();
+    void PrintInfo(const std::string& message);
+    void PrintError(const std::string& message);
+    void PrintPrompt();
 
 private:
-    void init_terminal();
+    void initTerminal();
     void restoreTerminal();
 
 #ifdef _WIN32
@@ -35,3 +37,5 @@ private:
     struct termios newt_;
 #endif
 };
+
+} // namespace lansend::cli

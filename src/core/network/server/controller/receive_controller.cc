@@ -20,7 +20,7 @@ namespace http = beast::http;
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
-namespace lansend {
+namespace lansend::core {
 
 ReceiveController::ReceiveController(HttpServer& server, const std::filesystem::path& save_dir)
     : server_(server)
@@ -69,7 +69,7 @@ net::awaitable<http::response<http::string_body>> ReceiveController::onRequestSe
             co_return HttpServer::BadRequest(req.version(), req.keep_alive(), "invalid data");
         }
 
-        models::DeviceInfo device_info = std::move(request_send_dto.device_info);
+        DeviceInfo device_info = std::move(request_send_dto.device_info);
         std::vector<FileDto> files = std::move(request_send_dto.files);
         std::string all_file_names{};
         for (const auto& file : files) {
@@ -233,7 +233,7 @@ net::awaitable<http::response<http::string_body>> ReceiveController::onSendChunk
                 }
 
                 // All valid, process the chunk
-                auto actual_checksum = file_hasher_.CalculateDataChecksum(chunk_data);
+                auto actual_checksum = FileHasher::CalculateDataChecksum(chunk_data);
                 if (actual_checksum != send_chunk_dto.chunk_checksum) {
                     throw std::runtime_error(
                         std::format("Chunk checksum mismatch for file_id {} in session_id {}",
@@ -338,11 +338,11 @@ net::awaitable<http::response<http::string_body>> ReceiveController::onVerifyInt
                     throw std::runtime_error(
                         std::format("File {} is not completely received ({} of {} chunks)",
                                     file_context.file_name,
-                                    file_context.received_chunks,
+                                    file_context.received_chunks.size(),
                                     file_context.total_chunks));
                 }
                 // Verify the file checksum
-                auto actual_checksum = file_hasher_.CalculateFileChecksum(
+                auto actual_checksum = FileHasher::CalculateFileChecksum(
                     file_context.temp_file_path);
                 if (actual_checksum != file_context.file_checksum) {
                     spdlog::debug("File checksum: {}, actual checksum: {}",
@@ -534,4 +534,4 @@ void ReceiveController::resetToIdle() {
     completed_count_ = 0;
 }
 
-} // namespace lansend
+} // namespace lansend::core

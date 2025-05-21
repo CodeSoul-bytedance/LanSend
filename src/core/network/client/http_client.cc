@@ -2,7 +2,7 @@
 #include <core/security/open_ssl_provider.h>
 #include <spdlog/spdlog.h>
 
-namespace lansend {
+namespace lansend::core {
 
 HttpsClient::HttpsClient(net::io_context& ioc, CertificateManager& cert_manager)
     : ioc_(ioc)
@@ -115,4 +115,4 @@ std::optional<boost::asio::ip::tcp::endpoint> HttpsClient::local_endpoint() cons
     }
 }
 
-} // namespace lansend
+} // namespace lansend::core

@@ -16,7 +16,7 @@
 #include <nlohmann/json.hpp>
 #include <thread>
 
-namespace lansend {
+namespace lansend::ipc {
 
 // all basic functions of lansend intergrated
 // poll events from IpcEventStream and handling them
@@ -77,4 +77,4 @@ private:
     lansend::Settings& settings_;
 };
 
-} // namespace lansend
+} // namespace lansend::ipc

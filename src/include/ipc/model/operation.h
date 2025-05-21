@@ -3,7 +3,7 @@
 #include "operation_type.h"
 #include <nlohmann/json.hpp>
 
-namespace lansend {
+namespace lansend::ipc {
 
 struct Operation {
     OperationType type;
@@ -12,4 +12,4 @@ struct Operation {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Operation, type, data);
 };
 
-} // namespace lansend
+} // namespace lansend::ipc

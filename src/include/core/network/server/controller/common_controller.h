@@ -5,7 +5,7 @@
 #include <boost/beast/http/string_body_fwd.hpp>
 #include <core/network/server/http_server.h>
 
-namespace lansend {
+namespace lansend::core {
 
 class CommonController {
 public:
@@ -22,4 +22,4 @@ private:
     void InstallRoutes(HttpServer& server);
 };
 
-} // namespace lansend
+} // namespace lansend::core

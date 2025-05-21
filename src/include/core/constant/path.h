@@ -8,7 +8,7 @@
 #include <shlobj_core.h>
 #endif
 
-namespace lansend {
+namespace lansend::core {
 namespace path {
 
 inline const std::filesystem::path kCertificateDir =
@@ -48,4 +48,4 @@ inline const std::filesystem::path kSystemDownloadDir = []() -> std::filesystem:
 }();
 
 } // namespace path
-} // namespace lansend
+} // namespace lansend::core

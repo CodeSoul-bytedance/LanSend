@@ -3,7 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-namespace lansend {
+namespace lansend::core {
 
 struct VerifyIntegrityDto {
     std::string session_id; // 会话唯一标识符
@@ -13,4 +13,4 @@ struct VerifyIntegrityDto {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(VerifyIntegrityDto, session_id, file_id, file_token);
 };
 
-} // namespace lansend
+} // namespace lansend::core

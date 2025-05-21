@@ -11,7 +11,7 @@ namespace fs = std::filesystem;
 namespace ssl = boost::asio::ssl;
 using json = nlohmann::json;
 
-namespace lansend {
+namespace lansend::core {
 
 CertificateManager::CertificateManager(const fs::path& certDir)
     : certificate_dir_(certDir) {
@@ -353,4 +353,4 @@ void CertificateManager::saveTrustedFingerprints() {
     }
 }
 
-} // namespace lansend
+} // namespace lansend::core

@@ -5,7 +5,7 @@
 
 namespace net = boost::asio;
 
-namespace lansend {
+namespace lansend::core {
 
 SendSessionManager::SendSessionManager(boost::asio::io_context& ioc,
                                        CertificateManager& cert_manager)
@@ -45,4 +45,4 @@ void SendSessionManager::CancelSend(const std::string& session_id) {
     }
 }
 
-} // namespace lansend
+} // namespace lansend::core

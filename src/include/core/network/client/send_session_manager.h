@@ -5,7 +5,9 @@
 #include <core/security/certificate_manager.h>
 #include <unordered_map>
 
-namespace lansend {
+namespace lansend::core {
+
+using FeedbackCallback = std::function<void(const nlohmann::json&)>;
 
 class SendSessionManager {
 public:
@@ -31,4 +33,4 @@ private:
     std::unordered_map<std::string, std::shared_ptr<SendSession>> send_sessions_;
 };
 
-} // namespace lansend
+} // namespace lansend::core

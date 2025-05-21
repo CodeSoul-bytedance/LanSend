@@ -5,8 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-namespace lansend {
-namespace models {
+namespace lansend::core {
 
 struct DeviceInfo {
     std::string device_id;        // 唯一ID
@@ -51,5 +50,4 @@ struct DeviceInfo {
         DeviceInfo, device_id, alias, hostname, operating_system, ip_address, port)
 };
 
-} // namespace models
-} // namespace lansend
+} // namespace lansend::core

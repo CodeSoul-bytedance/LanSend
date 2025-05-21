@@ -1,23 +1,27 @@
 #pragma once
 
+#include "core/model/feedback/feedback.h"
+#include <core/model/feedback.h>
 #include <deque>
 #include <ipc/model.h>
 #include <mutex>
 #include <nlohmann/json.hpp>
 
-namespace lansend {
+namespace lansend::ipc {
 
 class IpcEventStream {
+    using Feedback = core::Feedback;
+
 public:
     void PostOperation(Operation&& operation);
     void PostOperation(const Operation& operation);
-    void PostNotification(Notification&& notification);
-    void PostNotification(const Notification& notification);
+    void PostFeedback(Feedback&& feedback);
+    void PostFeedback(const Feedback& feedback);
 
     std::optional<Operation> PollActiveOperation();
     std::optional<ConfirmReceiveOperation> PollConfirmReceiveOperation();
     bool PollCancelReceiveOperation();
-    std::optional<Notification> PollNotification();
+    std::optional<Feedback> PollFeedback();
 
     static IpcEventStream* Instance() {
         static IpcEventStream instance;
@@ -36,7 +40,7 @@ private:
     bool cancel_receive_operation_{false};
 
     // for notifications
-    std::deque<Notification> notifications_;
+    std::deque<Feedback> feedbacks_;
 };
 
-} // namespace lansend
+} // namespace lansend::ipc

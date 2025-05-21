@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <iostream>
 
+namespace lansend::cli {
+
 ArgumentParser::ArgumentParser(int argc, char* argv[])
     : argc_(argc)
     , argv_(argv)
@@ -105,3 +107,5 @@ void ArgumentParser::ShowHelp() {
               << "  cancel ID            Cancel transfer by ID\n"
               << "  help                 Show help message\n";
 }
+
+} // namespace lansend::cli

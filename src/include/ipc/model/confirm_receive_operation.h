@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace lansend {
+namespace lansend::ipc {
 
 struct ConfirmReceiveOperation {
     bool accepted;
@@ -15,4 +15,4 @@ struct ConfirmReceiveOperation {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(ConfirmReceiveOperation, accepted, accepted_files);
 };
 
-} // namespace lansend
+} // namespace lansend::ipc

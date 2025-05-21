@@ -7,13 +7,13 @@
 #include <chrono>
 #include <core/model.h>
 #include <core/network/discovery/discovery_manager.h>
-#include <iostream>
-#include <mutex>
 #include <random>
 #include <spdlog/spdlog.h>
 
 using namespace boost::asio;
 using json = nlohmann::json;
+
+namespace lansend::core {
 
 DiscoveryManager::DiscoveryManager(io_context& ioc)
     : io_context_(ioc)
@@ -22,9 +22,8 @@ DiscoveryManager::DiscoveryManager(io_context& ioc)
     , broadcast_timer_(ioc)
     , cleanup_timer_(ioc)
     , // 新增清理定时器
-    device_found_callback_([](const lansend::models::DeviceInfo& device) {
-        spdlog::info("Device found:{}", device.device_id);
-    })
+    device_found_callback_(
+        [](const DeviceInfo& device) { spdlog::info("Device found:{}", device.device_id); })
     , device_lost_callback_(
           [](const std::string& device_id) { spdlog::info("Device lost:{}", device_id); }) {
     device_id_ = generateDeviceId();
@@ -78,7 +77,7 @@ void DiscoveryManager::Stop() {
     }
 }
 
-void DiscoveryManager::AddDevice(const lansend::models::DeviceInfo& device) {
+void DiscoveryManager::AddDevice(const DeviceInfo& device) {
     // std::lock_guard<std::mutex> lock(devices_mutex_);
     auto it = discovered_devices_.find(device.device_id);
     if (it == discovered_devices_.end()) {
@@ -102,17 +101,23 @@ void DiscoveryManager::RemoveDevice(const std::string& device_id) {
     }
 }
 
-std::vector<lansend::models::DeviceInfo> DiscoveryManager::GetDevices() const {
+std::optional<DeviceInfo> DiscoveryManager::GetDevice(const std::string& device_id) const {
+    if (discovered_devices_.contains(device_id)) {
+        return discovered_devices_.at(device_id).device;
+    }
+    return std::nullopt;
+}
+
+std::vector<DeviceInfo> DiscoveryManager::GetDevices() const {
     // std::lock_guard<std::mutex> lock(devices_mutex_);
-    std::vector<lansend::models::DeviceInfo> devices;
+    std::vector<DeviceInfo> devices;
     for (const auto& pair : discovered_devices_) {
         devices.push_back(pair.second.device);
     }
     return devices;
 }
 
-void DiscoveryManager::SetDeviceFoundCallback(
-    std::function<void(const lansend::models::DeviceInfo&)> callback) {
+void DiscoveryManager::SetDeviceFoundCallback(std::function<void(const DeviceInfo&)> callback) {
     device_found_callback_ = callback;
 }
 
@@ -128,7 +133,7 @@ awaitable<void> DiscoveryManager::broadcaster() {
 
         ip::udp::endpoint broadcast_endpoint(ip::make_address(broadcast_address), broadcast_port);
 
-        json device_json = lansend::models::DeviceInfo::LocalDeviceInfo();
+        json device_json = DeviceInfo::LocalDeviceInfo();
         std::string data = device_json.dump();
 
         while (broadcast_socket_.is_open()) {
@@ -174,7 +179,7 @@ awaitable<void> DiscoveryManager::listener() {
 
             try {
                 json device_json = json::parse(data);
-                lansend::models::DeviceInfo device = device_json.get<lansend::models::DeviceInfo>();
+                DeviceInfo device = device_json.get<DeviceInfo>();
                 // 判断是否是自己的设备，若是则跳过后续处理
                 if (device.device_id == device_id_) {
                     spdlog::info("Received message from self, skipping...");
@@ -221,3 +226,5 @@ awaitable<void> DiscoveryManager::cleanupDevices() {
         spdlog::error("Error in cleanup_devices: {}", e.what());
     }
 }
+
+} // namespace lansend::core

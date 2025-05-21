@@ -16,7 +16,7 @@
 #include <core/network/server/controller/receive_controller.h>
 #include <core/network/server/http_server.h>
 
-namespace lansend {
+namespace lansend::core {
 
 // Introduce awaitable operators for convenience.
 using namespace boost::asio::experimental::awaitable_operators;
@@ -315,4 +315,4 @@ StringRequest HttpServer::binaryToStringRequest(const BinaryRequest& req) {
     return string_req;
 }
 
-} // namespace lansend
+} // namespace lansend::core

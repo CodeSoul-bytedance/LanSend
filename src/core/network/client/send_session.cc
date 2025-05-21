@@ -1,4 +1,3 @@
-#include <boost/beast/http/string_body_fwd.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -16,7 +15,7 @@ namespace http = beast::http;
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
-namespace lansend {
+namespace lansend::core {
 
 SendSession::SendSession(boost::asio::io_context& ioc, CertificateManager& cert_manager)
     : ioc_(ioc)
@@ -48,7 +47,9 @@ boost::asio::awaitable<bool> SendSession::cancelSend() {
         auto res = co_await client_.SendRequest(req);
 
         if (res.result() != http::status::ok) {
-            spdlog::error("Failed to cancel send: {}:{}", res.reason(), res.body());
+            spdlog::error("Failed to cancel send: {}:{}",
+                          std::string_view(res.reason()),
+                          res.body());
             co_return false;
         }
 
@@ -73,7 +74,7 @@ std::vector<FileDto> SendSession::prepareFiles(const std::vector<std::filesystem
             file_dto.chunk_size = transfer::kDefaultChunkSize;
             file_dto.total_chunks = (file_dto.file_size + file_dto.chunk_size - 1)
                                     / file_dto.chunk_size;
-            file_dto.file_checksum = file_hasher_.CalculateFileChecksum(file_path);
+            file_dto.file_checksum = FileHasher::CalculateFileChecksum(file_path);
             file_dto.file_type = GetFileType(file_path.string());
             spdlog::debug(
                 "FileDto: file_id={}, file_name={}, file_size={}, chunk_size={}, total_chunks={}, "
@@ -115,7 +116,7 @@ boost::asio::awaitable<void> SendSession::Start(const std::vector<std::filesyste
     }
     try {
         RequestSendDto send_request_dto;
-        send_request_dto.device_info = models::DeviceInfo::LocalDeviceInfo();
+        send_request_dto.device_info = DeviceInfo::LocalDeviceInfo();
         send_request_dto.files = std::move(prepared_files);
 
         bool connected = co_await client_.Connect(host, port);
@@ -233,7 +234,8 @@ net::awaitable<bool> SendSession::requestSend(const RequestSendDto& send_request
                 }
                 co_return false;
             } else {
-                throw std::runtime_error(std::format("{}:{}", res.reason(), res.body()));
+                throw std::runtime_error(
+                    std::format("{}:{}", std::string_view(res.reason()), res.body()));
             }
         }
 
@@ -313,7 +315,7 @@ boost::asio::awaitable<void> SendSession::sendFile(std::string_view file_id) {
                 file_id.data(),
                 file_info.file_token,
                 chunk_idx,
-                file_hasher_.CalculateDataChecksum(chunk_data),
+                FileHasher::CalculateDataChecksum(chunk_data),
             };
 
             bool chunk_sent = co_await sendChunk(send_chunk_dto, chunk_data);
@@ -401,7 +403,8 @@ net::awaitable<bool> SendSession::sendChunk(const SendChunkDto& send_chunk_dto,
             session_status_ = SessionStatus::kCancelledByReceiver;
             co_return false;
         } else {
-            throw std::runtime_error(std::format("{}:{}", res.reason(), res.body()));
+            throw std::runtime_error(
+                std::format("{}:{}", std::string_view(res.reason()), res.body()));
         }
     } catch (const std::exception& e) {
         if (session_status_ == SessionStatus::kCancelledBySender
@@ -443,7 +446,8 @@ net::awaitable<bool> SendSession::verifyIntegrity(const VerifyIntegrityDto& veri
             session_status_ = SessionStatus::kCancelledByReceiver;
             co_return false;
         } else {
-            throw std::runtime_error(std::format("{}:{}", res.reason(), res.body()));
+            throw std::runtime_error(
+                std::format("{}:{}", std::string_view(res.reason()), res.body()));
         }
     } catch (const std::exception& e) {
         if (session_status_ != SessionStatus::kCancelledBySender
@@ -454,4 +458,4 @@ net::awaitable<bool> SendSession::verifyIntegrity(const VerifyIntegrityDto& veri
     }
 }
 
-} // namespace lansend
+} // namespace lansend::core

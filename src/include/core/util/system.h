@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace lansend {
+namespace lansend::core {
 
 namespace system {
 
@@ -12,4 +12,4 @@ std::string OperatingSystem(); // etc: Windows 11 (x86_64)
 
 } // namespace system
 
-} // namespace lansend
+} // namespace lansend::core

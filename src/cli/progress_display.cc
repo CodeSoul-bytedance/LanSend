@@ -3,6 +3,8 @@
 #include <iostream>
 #include <sstream>
 
+namespace lansend::cli {
+
 // 构造函数
 ProgressDisplay::ProgressDisplay() {
     // 暂时为空
@@ -14,7 +16,7 @@ ProgressDisplay::~ProgressDisplay() {
 }
 
 // 私有方法，用于打印进度信息
-void ProgressDisplay::printProgress(const lansend::models::TransferProgress& progress) {
+void ProgressDisplay::printProgress(const TransferProgress& progress) {
     // 打印进度信息
     std::cout << "\rTransfer ID: " << progress.transfer_id << " | Filename: " << progress.filename
               << " | Progress: " << std::fixed << std::setprecision(2)
@@ -24,7 +26,7 @@ void ProgressDisplay::printProgress(const lansend::models::TransferProgress& pro
 }
 
 // 更新进度信息
-void ProgressDisplay::UpdateProgress(const lansend::models::TransferProgress& progress) {
+void ProgressDisplay::UpdateProgress(const TransferProgress& progress) {
     printProgress(progress);
 }
 
@@ -32,3 +34,5 @@ void ProgressDisplay::UpdateProgress(const lansend::models::TransferProgress& pr
 void ProgressDisplay::ClearProgress() {
     std::cout << "\r" << std::string(120, ' ') << "\r" << std::flush;
 }
+
+} // namespace lansend::cli

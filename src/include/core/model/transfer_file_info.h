@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <string>
 
-namespace lansend {
+namespace lansend::core {
 
 struct TransferFileInfo {
     std::filesystem::path file_path;
@@ -12,4 +12,4 @@ struct TransferFileInfo {
     std::string file_token;
 };
 
-} // namespace lansend
+} // namespace lansend::core

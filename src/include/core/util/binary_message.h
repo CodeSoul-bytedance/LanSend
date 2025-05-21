@@ -1,17 +1,12 @@
 #pragma once
 
+#include <boost/asio.hpp>
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <vector>
 
-#ifdef _WIN32
-#include <winsock2.h>
-#else
-#include <arpa/inet.h>
-#endif
-
-namespace lansend {
+namespace lansend::core {
 
 using BinaryData = std::vector<std::uint8_t>;
 using BinaryMessage = std::vector<std::uint8_t>;
@@ -78,4 +73,4 @@ inline bool ParseBinaryMessage(const BinaryMessage& message,
     return true;
 }
 
-} // namespace lansend
+} // namespace lansend::core

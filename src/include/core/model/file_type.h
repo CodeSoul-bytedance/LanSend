@@ -6,7 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <string_view>
 
-namespace lansend {
+namespace lansend::core {
 
 enum class FileType {
     kImage,
@@ -134,4 +134,4 @@ inline FileType GetFileType(std::string_view filepath) {
     return FileType::kOther;
 }
 
-} // namespace lansend
+} // namespace lansend::core

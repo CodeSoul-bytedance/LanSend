@@ -1,6 +1,6 @@
 #pragma once
 
-namespace lansend {
+namespace lansend::core {
 
 enum class SessionStatus {
     kIdle,                // 空闲状态

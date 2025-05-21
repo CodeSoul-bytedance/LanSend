@@ -14,7 +14,7 @@
 #include <windows.h>
 #endif
 
-namespace lansend {
+namespace lansend::core {
 
 namespace system {
 
@@ -154,4 +154,4 @@ std::string OperatingSystem() {
 
 } // namespace system
 
-} // namespace lansend
+} // namespace lansend::core

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <thread>
 
+using namespace lansend::core;
+
 int main(int argc, char* argv[]) {
     boost::asio::io_context ioc;
     DiscoveryManager manager(ioc);
@@ -14,7 +16,7 @@ int main(int argc, char* argv[]) {
     std::atomic<bool> device_lost{false};
 
     // 设置设备发现回调函数
-    manager.SetDeviceFoundCallback([&device_found](const lansend::models::DeviceInfo& device) {
+    manager.SetDeviceFoundCallback([&device_found](const DeviceInfo& device) {
         std::cout << "Device found: " << device.device_id << std::endl;
         device_found = true;
     });

@@ -10,9 +10,9 @@
 // clang-format on
 #endif
 
-namespace lansend {
+namespace lansend::core {
 
-static void load_setting() {
+static void LoadSetting() {
     if (!config.contains("setting")) {
         config.insert("setting", toml::table{});
     }
@@ -28,20 +28,20 @@ static void load_setting() {
     } else {
         settings.port = 56789;
     }
-    if (setting.contains("auth-code")) {
-        settings.authCode = setting["auth-code"].value_or("");
+    if (setting.contains("pin-code")) {
+        settings.pin_code = setting["pin-code"].value_or("");
     } else {
-        settings.authCode = "";
+        settings.pin_code = "";
     }
-    if (setting.contains("auto-save")) {
-        settings.autoSave = setting["auto-save"].value_or(false);
+    if (setting.contains("auto-receive")) {
+        settings.auto_receive = setting["auto-receive"].value_or(false);
     } else {
-        settings.autoSave = false;
+        settings.auto_receive = false;
     }
     if (setting.contains("save-dir")) {
-        settings.saveDir = setting["save-dir"].value_or(path::kSystemDownloadDir.string());
+        settings.save_dir = setting["save-dir"].value_or(path::kSystemDownloadDir.string());
     } else {
-        settings.saveDir = path::kSystemDownloadDir;
+        settings.save_dir = path::kSystemDownloadDir;
     }
     if (setting.contains("metadata-storage-path")) {
         settings.metadataStoragePath = setting["metadata-storage-path"].value_or(
@@ -51,7 +51,7 @@ static void load_setting() {
     }
 }
 
-void init_config() {
+void InitConfig() {
     if (!std::filesystem::exists(path::kConfigDir)) {
         spdlog::info("Config directory does not exist, creating...");
         std::filesystem::create_directories(path::kConfigDir);
@@ -68,10 +68,10 @@ void init_config() {
         config = toml::parse("");
     }
 
-    load_setting();
+    LoadSetting();
 }
 
-void save_config() {
+void SaveConfig() {
     auto path = path::kConfigDir / "config.toml";
     std::ofstream ofs(path);
     if (!ofs.is_open()) {
@@ -82,11 +82,11 @@ void save_config() {
                             toml::table{
                                 {"alias", settings.alias},
                                 {"port", settings.port},
-                                {"auth-code", settings.authCode},
-                                {"auto-save", settings.autoSave},
-                                {"save-dir", settings.saveDir.string()},
+                                {"auth-code", settings.pin_code},
+                                {"auto-save", settings.auto_receive},
+                                {"save-dir", settings.save_dir.string()},
                             });
     ofs << config;
 }
 
-} // namespace lansend
+} // namespace lansend::core

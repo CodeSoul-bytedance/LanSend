@@ -7,7 +7,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-namespace lansend {
+namespace lansend::core {
 class Logger {
     using LoggerType = spdlog::async_logger;
 
@@ -72,4 +72,4 @@ private:
     std::shared_ptr<LoggerType> logger_;
     std::shared_ptr<spdlog::details::thread_pool> thread_pool_;
 };
-} // namespace lansend
+} // namespace lansend::core

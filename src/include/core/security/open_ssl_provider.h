@@ -19,7 +19,7 @@
 #include <openssl/x509_vfy.h>
 #include <string_view>
 
-namespace lansend {
+namespace lansend::core {
 
 class OpenSSLProvider {
 private:
@@ -71,4 +71,4 @@ public:
     static bool SetHostname(SSL* ssl, std::string_view hostname);
 };
 
-} // namespace lansend
+} // namespace lansend::core

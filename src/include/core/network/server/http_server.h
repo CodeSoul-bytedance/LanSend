@@ -10,7 +10,7 @@
 #include <memory>
 #include <string>
 
-namespace lansend {
+namespace lansend::core {
 
 class CommonController;
 class ReceiveController;
@@ -104,4 +104,4 @@ private:
     std::unique_ptr<ReceiveController> receive_controller_;
 };
 
-} // namespace lansend
+} // namespace lansend::core

@@ -7,7 +7,7 @@
 namespace ssl = boost::asio::ssl;
 namespace uuids = boost::uuids;
 
-namespace lansend {
+namespace lansend::core {
 
 OpenSSLProvider::~OpenSSLProvider() {
     if (initialized_) {
@@ -96,4 +96,4 @@ bool OpenSSLProvider::SetHostname(SSL* ssl, std::string_view hostname) {
     return true;
 }
 
-} // namespace lansend
+} // namespace lansend::core

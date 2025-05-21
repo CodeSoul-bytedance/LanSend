@@ -4,7 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <unordered_map>
 
-namespace lansend {
+namespace lansend::core {
 
 struct RequestSendResponseDto {
     std::string session_id;                                   // 服务器生成的会话ID
@@ -13,4 +13,4 @@ struct RequestSendResponseDto {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RequestSendResponseDto, session_id, file_tokens);
 };
 
-} // namespace lansend
+} // namespace lansend::core
