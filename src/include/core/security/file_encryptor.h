@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace lansend {
+namespace lansend::core {
 
 /**
  * @class FileEncryptor
@@ -127,4 +127,4 @@ private:
     static void secureZeroMemory(void* data_ptr, std::size_t len);
 };
 
-} // namespace lansend
+} // namespace lansend::core

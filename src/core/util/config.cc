@@ -24,9 +24,9 @@ static void LoadSetting() {
         settings.port = 56789;
     }
     if (setting.contains("pin-code")) {
-        settings.pin_code = setting["pin-code"].value_or("");
+        settings.pin_code = setting["pin-code"].value_or(std::string{});
     } else {
-        settings.pin_code = "";
+        settings.pin_code = {};
     }
     if (setting.contains("auto-receive")) {
         settings.auto_receive = setting["auto-receive"].value_or(false);

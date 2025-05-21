@@ -1,4 +1,6 @@
 // clang-format off
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/use_awaitable.hpp>
 #include <ipc/ipc_backend_service.h>
 #include "core/constant/path.h"
 #include "core/model/feedback.h"
@@ -46,11 +48,18 @@ IpcBackendService::IpcBackendService(boost::asio::io_context& ioc, IpcEventStrea
 }
 
 void IpcBackendService::Start() {
+    // tell the frontend the current settings first
+    event_stream_.PostFeedback(core::Feedback{
+        .type = core::FeedbackType::kSettings,
+        .data = core::feedback::Settings::FromConfigSettings(),
+    });
     net::co_spawn(ioc_, start(), net::detached);
     spdlog::debug("IpcBackendService started");
 }
 
 void IpcBackendService::Stop() {
+    discovery_manager_.Stop();
+    http_server_.Stop();
     is_running_ = false;
     spdlog::debug("IpcBackendService stopped");
 }
@@ -191,7 +200,10 @@ void IpcBackendService::cancelSend(const std::string& session_id) {
 
 void IpcBackendService::connectToDevice(const std::string& device_id, std::string_view pin_code) {
     if (auto device = discovery_manager_.GetDevice(device_id); device) {
-        http_client_service_.ConnectDevice(pin_code, device->ip_address, device->port);
+        http_client_service_.ConnectDevice(pin_code,
+                                           device->ip_address,
+                                           device->port,
+                                           device->device_id);
     } else {
         spdlog::error("IPC Error: Device not found");
     }

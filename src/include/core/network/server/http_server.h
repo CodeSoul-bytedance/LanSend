@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/model/dto/file_dto.h"
 #include "core/security/certificate_manager.h"
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>

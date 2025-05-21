@@ -12,6 +12,7 @@ public:
     static constexpr std::string_view kSendChunk = "/send-chunk";
     static constexpr std::string_view kVerifyIntegrity = "/verify-integrity";
     static constexpr std::string_view kCancelSend = "/cancel-send";
+    static constexpr std::string_view kCancelWait = "/cancel-wait";
 };
 
 } // namespace lansend::core

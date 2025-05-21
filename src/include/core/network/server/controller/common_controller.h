@@ -25,7 +25,13 @@ private:
 
     void InstallRoutes(HttpServer& server);
 
-    FeedbackCallback feedback_callback_;
+    FeedbackCallback callback_;
+
+    void feedback(Feedback&& feedback) {
+        if (callback_) {
+            callback_(std::move(feedback));
+        }
+    }
 };
 
 } // namespace lansend::core

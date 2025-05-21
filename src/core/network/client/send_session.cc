@@ -1,3 +1,5 @@
+#include "core/model/feedback.h"
+#include "core/model/feedback/send_session_end.h"
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -17,10 +19,13 @@ using json = nlohmann::json;
 
 namespace lansend::core {
 
-SendSession::SendSession(boost::asio::io_context& ioc, CertificateManager& cert_manager)
+SendSession::SendSession(boost::asio::io_context& ioc,
+                         CertificateManager& cert_manager,
+                         FeedbackCallback callback)
     : ioc_(ioc)
     , client_(ioc, cert_manager)
-    , cert_manager_(cert_manager) {}
+    , cert_manager_(cert_manager)
+    , callback_(callback) {}
 
 void SendSession::Cancel() {
     spdlog::info("Try to cancel send session: {}", session_id_);
@@ -122,6 +127,10 @@ boost::asio::awaitable<void> SendSession::Start(const std::vector<std::filesyste
         bool connected = co_await client_.Connect(host, port);
         if (!connected) {
             spdlog::error("Failed to connect to server");
+
+            // feedback network error
+            feedback(Feedback{.type = FeedbackType::kNetworkError});
+
             session_status_ = SessionStatus::kFailed;
             co_return;
         }
@@ -137,8 +146,7 @@ boost::asio::awaitable<void> SendSession::Start(const std::vector<std::filesyste
         do {
             bool accepted = co_await requestSend(send_request_dto);
             if (!accepted) {
-                if (session_status_ == SessionStatus::kCancelledBySender
-                    || session_status_ == SessionStatus::kCancelledByReceiver) {
+                if (session_status_ == SessionStatus::kCancelledBySender) {
                     spdlog::info("send request was cancelled");
                     co_return;
                 } else if (session_status_ == SessionStatus::kWaiting) {
@@ -150,6 +158,15 @@ boost::asio::awaitable<void> SendSession::Start(const std::vector<std::filesyste
                     continue;
                 } else {
                     spdlog::info("send request to {}:{} was declined", host, port);
+
+                    // feedback receiver declined
+                    feedback(Feedback{
+                        .type = FeedbackType::kRecipientDeclined,
+                        .data = feedback::RecipientDeclined{
+                            .device_id = receiver_device_id_,
+                        },
+                    });
+
                     co_await client_.Disconnect();
                     session_status_ = SessionStatus::kDeclined;
                     co_return;
@@ -158,9 +175,14 @@ boost::asio::awaitable<void> SendSession::Start(const std::vector<std::filesyste
         } while (session_status_ == SessionStatus::kWaiting);
 
         spdlog::info("send request to {}:{} was accepted", host, port);
-        if (callback) {
-            callback();
-        }
+
+        // feedback receiver accepted
+        feedback(Feedback{
+            .type = FeedbackType::kRecipientAccepted,
+            .data = feedback::RecipientAccepted{
+                .device_id = receiver_device_id_,
+            },
+        });
 
         session_status_ = SessionStatus::kSending;
 
@@ -193,6 +215,15 @@ boost::asio::awaitable<void> SendSession::Start(const std::vector<std::filesyste
         }
         spdlog::info("All files sent successfully, closing session: {}", session_id_);
         session_status_ = SessionStatus::kCompleted;
+
+        // feedback session completed
+        feedback(Feedback{
+            .type = FeedbackType::kSendSessionEnded,
+            .data = feedback::SendSessionEnd{
+                .session_id = session_id_,
+                .success = true,
+            },
+        });
     } catch (const std::exception& e) {
         if (session_status_ != SessionStatus::kCancelledBySender
             && session_status_ != SessionStatus::kCancelledByReceiver) {
@@ -330,10 +361,31 @@ boost::asio::awaitable<void> SendSession::sendFile(std::string_view file_id) {
                                   file_info.total_chunks,
                                   file_id);
                     session_status_ = SessionStatus::kFailed;
+
+                    // feedback session failed
+                    feedback(Feedback{
+                        .type = FeedbackType::kSendSessionEnded,
+                        .data = feedback::SendSessionEnd{
+                            .session_id = session_id_,
+                            .device_id = receiver_device_id_,
+                            .success = false,
+                            .error_message = "Failed to send chunk",
+                        },
+                    });
                 }
                 file.close();
                 co_return;
             }
+
+            // feedback file sending progress
+            feedback(Feedback{
+                .type = FeedbackType::kFileSendingProgress,
+                .data = feedback::FileSendingProgress{
+                    .session_id = session_id_,
+                    .filename = file_info.file_path.string(),
+                    .progress = 100.0 * (chunk_idx + 1) / file_info.total_chunks,
+                },
+            });
 
             if ((chunk_idx + 1) % 10 == 0 || chunk_idx + 1 == file_info.total_chunks) {
                 spdlog::info("Sent chunk {}/{} ({:.1f}%)",
@@ -354,17 +406,47 @@ boost::asio::awaitable<void> SendSession::sendFile(std::string_view file_id) {
                 spdlog::info("File transfer cancelled");
             } else {
                 spdlog::error("Verification failed for file {}", file_info.file_path.string());
+
+                // feedback session failed
+                feedback(Feedback{
+                    .type = FeedbackType::kSendSessionEnded,
+                    .data = feedback::SendSessionEnd{
+                        .session_id = session_id_,
+                        .device_id = receiver_device_id_,
+                        .success = false,
+                        .error_message = "File verification failed",
+                    },
+                });
+
                 session_status_ = SessionStatus::kFailed;
             }
         } else {
             spdlog::info("File {} verification completed successfully",
                          file_info.file_path.string());
+
+            // feedback file sending completed
+            feedback(Feedback{
+                .type = FeedbackType::kFileSendingCompleted,
+                .data = feedback::FileSendingCompleted{.session_id = session_id_,
+                                                       .filename = file_info.file_path.string()},
+            });
         }
     } catch (const std::exception& e) {
         if (session_status_ != SessionStatus::kCancelledBySender
             && session_status_ != SessionStatus::kCancelledByReceiver) {
             spdlog::error("Error occurred on SendSession::SendFile: {}", e.what());
             session_status_ = SessionStatus::kFailed;
+
+            // feedback session failed
+            feedback(Feedback{
+                .type = FeedbackType::kSendSessionEnded,
+                .data = feedback::SendSessionEnd{
+                    .session_id = session_id_,
+                    .device_id = receiver_device_id_,
+                    .success = false,
+                    .error_message = e.what(),
+                },
+            });
         }
     }
 }
@@ -401,6 +483,18 @@ net::awaitable<bool> SendSession::sendChunk(const SendChunkDto& send_chunk_dto,
         } else if (res.result() == http::status::forbidden && res.body() == "receiver cancelled") {
             spdlog::info("File transfer cancelled by receiver");
             session_status_ = SessionStatus::kCancelledByReceiver;
+
+            // feedback receiver cancellation
+            feedback(Feedback{
+                .type = FeedbackType::kSendSessionEnded,
+                .data = feedback::SendSessionEnd{
+                    .session_id = session_id_,
+                    .device_id = receiver_device_id_,
+                    .success = false,
+                    .cancelled_by_receiver = true,
+                },
+            });
+
             co_return false;
         } else {
             throw std::runtime_error(
@@ -444,6 +538,18 @@ net::awaitable<bool> SendSession::verifyIntegrity(const VerifyIntegrityDto& veri
         } else if (res.result() == http::status::forbidden && res.body() == "receiver cancelled") {
             spdlog::info("File transfer cancelled by receiver");
             session_status_ = SessionStatus::kCancelledByReceiver;
+
+            // feedback receiver cancellation
+            feedback(Feedback{
+                .type = FeedbackType::kSendSessionEnded,
+                .data = feedback::SendSessionEnd{
+                    .session_id = session_id_,
+                    .device_id = receiver_device_id_,
+                    .success = false,
+                    .cancelled_by_receiver = true,
+                },
+            });
+
             co_return false;
         } else {
             throw std::runtime_error(

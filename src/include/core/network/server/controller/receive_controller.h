@@ -62,6 +62,9 @@ private:
     boost::asio::awaitable<boost::beast::http::response<boost::beast::http::string_body>>
     onCancelSend(const boost::beast::http::request<boost::beast::http::string_body>& req);
 
+    boost::asio::awaitable<boost::beast::http::response<boost::beast::http::string_body>>
+    onCancelWait(const boost::beast::http::request<boost::beast::http::string_body>& req);
+
     boost::asio::awaitable<std::optional<std::vector<FileDto>>> waitForUserConfirmation(
         std::string device_id, const std::vector<FileDto>& files, int timeout_seconds = 30);
 
@@ -82,6 +85,12 @@ private:
 
     std::string sender_ip_{};
     unsigned short sender_port_{};
+
+    void feedback(Feedback&& feedback) {
+        if (callback_) {
+            callback_(std::move(feedback));
+        }
+    }
 };
 
 } // namespace lansend::core

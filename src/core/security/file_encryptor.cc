@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace lansend {
+namespace lansend::core {
 
 using ErrorType = std::string;
 
@@ -412,4 +412,4 @@ void FileEncryptor::secureZeroMemory(void* data_ptr, std::size_t len) {
     }
 }
 
-} // namespace lansend
+} // namespace lansend::core
