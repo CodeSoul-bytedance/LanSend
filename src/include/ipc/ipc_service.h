@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 #include <functional>
 #include <iostream>
+#include <ipc/ipc_event_stream.h>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -25,6 +26,7 @@ public:
 
     // 构造函数
     explicit IpcService(boost::asio::io_context& io_context,
+                        IpcEventStream& event_stream,
                         const std::string& stdin_pipe_name,
                         const std::string& stdout_pipe_name);
 
@@ -38,6 +40,8 @@ public:
     boost::asio::awaitable<void> send_message(const std::string& type, const nlohmann::json& data);
 
 private:
+    IpcEventStream& event_stream_;
+
     // 处理从标准输入读取的消息
     boost::asio::awaitable<void> read_message_loop();
 

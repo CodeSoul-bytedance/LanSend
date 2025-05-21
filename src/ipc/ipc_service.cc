@@ -21,9 +21,11 @@
 
 namespace lansend::ipc {
 IpcService::IpcService(boost::asio::io_context& io_context,
+                       IpcEventStream& event_stream,
                        const std::string& stdin_pipe_name_str,
                        const std::string& stdout_pipe_name_str)
     : io_context_(io_context)
+    , event_stream_(event_stream)
     ,
 #ifdef _WIN32
     input_(io_context)
@@ -362,7 +364,6 @@ boost::asio::awaitable<void> IpcService::read_message_loop() {
 
 boost::asio::awaitable<void> IpcService::read_event_stream_loop() {
     spdlog::info("Starting read event stream loop");
-    auto event_stream = lansend::ipc::IpcEventStream::Instance();
 
     while (running_) {
         try {
@@ -371,7 +372,7 @@ boost::asio::awaitable<void> IpcService::read_event_stream_loop() {
             co_await boost::asio::steady_timer(executor, std::chrono::milliseconds(10))
                 .async_wait(boost::asio::use_awaitable);
 
-            auto feedback = event_stream->PollFeedback();
+            auto feedback = event_stream_.PollFeedback();
             if (!feedback) {
                 continue;
             }
@@ -430,8 +431,7 @@ boost::asio::awaitable<void> IpcService::handle_message(const std::string& messa
             co_return;
         }
 
-        lansend::ipc::IpcEventStream::Instance()->PostOperation(
-            Operation(message["operation"], message["data"]));
+        event_stream_.PostOperation(Operation(message["operation"], message["data"]));
 
     } catch (const std::exception& e) {
         spdlog::error("Failed to process message: {}", e.what());

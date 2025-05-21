@@ -190,7 +190,7 @@ const app = Vue.createApp({
                 JSON.stringify(message)
             );
 
-            switch (message.type) {
+            switch (message.feedback) {
                 case "Error":
                     this.showError(message.error || "未知错误");
                     break;
@@ -198,14 +198,15 @@ const app = Vue.createApp({
                     console.log("处理发现设备通知:", message);
                     // 设备信息在message.data数组中
                     if (
-                        message.data &&
-                        Array.isArray(message.data) &&
-                        message.data.length > 0
+                        message.data
                     ) {
-                        message.data.forEach((device) => {
-                            console.log("添加设备:", device);
-                            this.updateDeviceList(device);
+                        this.updateDeviceList({
+                            alias: message.data.device_info.alias,
+                            device_id: message.data.device_info.device_id,
+                            ip: message.data.device_info.ip,
+                            port: message.data.device_info.port,
                         });
+                        console.log("添加设备:", message.data);
                     } else {
                         console.warn(
                             "收到FoundDevice通知，但没有设备数据或格式不正确",
@@ -229,7 +230,7 @@ const app = Vue.createApp({
                 case "Settings":
                     this.settings = { ...this.settings, ...message.settings };
                     break;
-                case "ConnectedToDevice":
+                case "ConnectDeviceResult":
                     // 更新设备连接状态
                     const connectedDevice = this.devices.find(
                         (d) => d.device_id === message.device_id
@@ -356,7 +357,7 @@ const app = Vue.createApp({
                         }
                     }
                     break;
-                case "AllSendingCompleted":
+                case "SendSessionEnded":
                     // 找到对应的传输任务
                     const allCompletedTransfer = this.transfers.find(
                         (t) =>
@@ -375,6 +376,9 @@ const app = Vue.createApp({
                             status: "completed",
                             transferred_size: allCompletedTransfer.totalSize,
                         });
+                    }
+                    else{
+                        console.error("收到SendSessionEnded通知，但没有找到对应的传输任务", message);
                     }
                     break;
                 case "RequestReceiveFiles":
@@ -476,7 +480,7 @@ const app = Vue.createApp({
                         }
                     }
                     break;
-                case "AllReceivingCompleted":
+                case "ReceiveSessionEnded":
                     // 更新所有文件接收完成状态
                     // 找到当前正在接收的传输
                     const allReceivingCompletedTransfer = this.transfers.find(
@@ -496,6 +500,9 @@ const app = Vue.createApp({
                             transferred_size:
                                 allReceivingCompletedTransfer.totalSize,
                         });
+                    }
+                    else{
+                        console.error("收到ReceiveSessionEnded通知，但没有找到对应的传输任务", message);
                     }
                     break;
                 case "SendingCancelledByReceiver":
@@ -530,7 +537,7 @@ const app = Vue.createApp({
                     }
                     break;
                 default:
-                    console.log("Unknown message type:", message.type);
+                    console.log("Unknown message type:", message.feedback);
             }
         },
 
