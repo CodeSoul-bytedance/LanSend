@@ -21,24 +21,68 @@ void CliManager::process_command(const std::string& command) {
     auto args = parse_command(command);
     execute_command(args);
 }
-void CliManager::process_command(const std::string& command) {
-    auto args = parse_command(command);
-    execute_command(args);
+void CliManager::start_interactive_mode() {
+    terminal_->ClearScreen();
+    while (true) {
+        terminal_->PrintPrompt();
+        std::string command = terminal_->ReadLine();
+        if (command == "exit" || command == "quit") {
+            break;
+        }
+        process_command(command);
+    }
 }
 
-// void CliManager::start_interactive_mode() {
-//     terminal_->ClearScreen();
-//     while (true) {
-//         terminal_->PrintPrompt();
-//         std::string command = terminal_->ReadLine();
-//         if (command == "exit" || command == "quit") {
-//             break;
-//         }
-//         process_command(command);
-//     }
-// }
+void CliManager::handle_list_devices() {
+    try {
+        auto devices = discovery_manager_.GetDevices();
+        print_device_list(devices);
+    } catch (const std::exception& e) {
+        terminal_->PrintError("Failed to list devices: " + std::string(e.what()));
+    }
+}
 
-// void CliManager::handle_list_devices() {
+void CliManager::handle_send_file(const std::string& alias,
+                                  const std::vector<std::filesystem::path>& filepaths) {
+    std::vector<std::filesystem::path> valid_file_paths;
+    for (const auto& filepath : filepaths) {
+        if (!fs::exists(filepath)) {
+            terminal_->PrintError("file not exist: " + filepath.string());
+            continue;
+        }
+        valid_file_paths.emplace_back(filepath);
+    }
+
+    if (valid_file_paths.empty()) {
+        terminal_->PrintError("No valid files to send.");
+        return;
+    }
+    try {
+        auto devices = discovery_manager_.GetDevices();
+        auto it = devices.end();
+        for (auto iter = devices.begin(); iter != devices.end(); ++iter) {
+            if (iter->alias == alias) {
+                it = iter;
+                break;
+            }
+        }
+        if (it == devices.end()) {
+            terminal_->PrintError("device not found alias: " + alias);
+            return;
+        }
+        http_client_service_.SendFiles(it->ip_address, it->port, filepaths);
+        std::ostringstream oss;
+        oss << "start sending files to device ID: " << alias << "\n";
+        for (const auto& filepath : filepaths) {
+            oss << " - " << filepath << "\n";
+        }
+        terminal_->PrintInfo(oss.str());
+    } catch (const std::exception& e) {
+        terminal_->PrintError("send file fail: " + std::string(e.what()));
+    }
+}
+
+// void CliManager::handle_show_transfers() {
 //     try {
 //         auto transfers = http_client_service_.get_active_transfers();
 //         print_transfer_list(transfers);

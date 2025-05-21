@@ -38,9 +38,6 @@ public:
     // 命令解析
     std::vector<std::string> parse_command(const std::string& command);
     void execute_command(const std::vector<std::string>& args);
-    // 命令解析
-    std::vector<std::string> parse_command(const std::string& command);
-    void execute_command(const std::vector<std::string>& args);
 
     // 输出格式化 (使用明确的作用域解析 ::)
     void print_device_list(const std::vector<core::DeviceInfo>& devices);

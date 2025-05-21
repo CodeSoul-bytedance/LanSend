@@ -31,14 +31,13 @@ using tcp = net::ip::tcp;
 HttpServer::HttpServer(boost::asio::io_context& io_context, CertificateManager& cert_manager)
     : io_context_(io_context)
     , cert_manager_(cert_manager)
-    , ssl_context_(nullptr)
+    , ssl_context_(
+          OpenSSLProvider::BuildServerContext(cert_manager_.security_context().certificate_pem,
+                                              cert_manager_.security_context().private_key_pem))
     , acceptor_(io_context)
     , running_(false) {
     common_controller_ = std::make_unique<CommonController>(*this);
     receive_controller_ = std::make_unique<ReceiveController>(*this);
-    auto security_context = cert_manager_.security_context();
-    ssl_context_ = OpenSSLProvider::BuildServerContext(security_context.certificate_pem,
-                                                       security_context.private_key_pem);
     spdlog::info("HttpServer created.");
 }
 

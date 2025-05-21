@@ -1,13 +1,9 @@
-// clang-format off
-#include <boost/asio/awaitable.hpp>
-#include <boost/asio/use_awaitable.hpp>
-#include <ipc/ipc_backend_service.h>
 #include "core/constant/path.h"
 #include "core/model/feedback.h"
 #include "core/model/feedback/feedback_type.h"
 #include "core/security/certificate_manager.h"
 #include "core/util/config.h"
-// clang-format on
+#include <ipc/ipc_backend_service.h>
 
 namespace net = boost::asio;
 
