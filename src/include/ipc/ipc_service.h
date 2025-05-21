@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -57,6 +58,7 @@ private:
 #endif
     std::map<std::string, MessageHandler> handlers_;
     bool running_;
+    std::mutex write_mutex_; // 用于同步对管道的写入操作
 };
 
 } // namespace lansend

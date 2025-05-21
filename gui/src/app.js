@@ -93,8 +93,19 @@ const app = Vue.createApp({
         //连接设备
         async connect_to_device(deviceId) {
             try {
+                console.log("尝试连接设备，设备ID:", deviceId);
+                // 确保传递的是字符串类型的设备ID
+                if (typeof deviceId === 'object' && deviceId.device_id) {
+                    deviceId = deviceId.device_id;
+                }
+                
+                if (!deviceId || typeof deviceId !== 'string') {
+                    throw new Error("无效的设备ID");
+                }
+                
                 await PipeClient.methods.connectToDevice(deviceId);
             } catch (error) {
+                console.error("连接设备失败:", error);
                 this.showError(error.message || "连接设备失败");
             }
         },
@@ -118,10 +129,26 @@ const app = Vue.createApp({
                     this.showError(message.error || "未知错误");
                     break;
                 case "FoundDevice":
-                    this.updateDeviceList(message.device);
+                    console.log("处理发现设备通知:", message);
+                    // 设备信息在message.data数组中
+                    if (message.data && Array.isArray(message.data) && message.data.length > 0) {
+                        message.data.forEach(device => {
+                            console.log("添加设备:", device);
+                            this.updateDeviceList(device);
+                        });
+                    } else {
+                        console.warn("收到FoundDevice通知，但没有设备数据或格式不正确", message);
+                    }
                     break;
                 case "LostDevice":
-                    this.removeDevice(message.device_id);
+                    console.log("处理设备离线通知:", message);
+                    // 设备ID在message.data.device_id中
+                    if (message.data && message.data.device_id) {
+                        console.log("移除设备:", message.data.device_id);
+                        this.removeDevice(message.data.device_id);
+                    } else {
+                        console.warn("收到LostDevice通知，但没有设备ID或格式不正确", message);
+                    }
                     break;
                 case "Settings":
                     this.settings = { ...this.settings, ...message.settings };
@@ -377,17 +404,28 @@ const app = Vue.createApp({
                 JSON.stringify(this.devices)
             );
         },
-
+        
         // 移除设备
         removeDevice(deviceId) {
+            console.log("执行removeDevice，设备ID:", deviceId);
+            console.log("当前设备列表:", JSON.stringify(this.devices));
+            
             const index = this.devices.findIndex(
                 (d) => d.device_id === deviceId
             );
+            
+            console.log("找到设备索引:", index);
+            
+            // 注意：findIndex如果没有找到元素会返回-1，所以我们需要检查index >= 0
             if (index >= 0) {
+                console.log("移除设备索引", index);
                 this.devices.splice(index, 1);
+                console.log("移除后的设备列表:", JSON.stringify(this.devices));
+            } else {
+                console.warn("要移除的设备未找到:", deviceId);
             }
         },
-
+        
         // 处理传输请求
         handleTransferRequest(message) {
             this.transfers.push({

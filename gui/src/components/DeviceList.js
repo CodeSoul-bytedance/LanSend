@@ -13,6 +13,12 @@ const DeviceList = {
             this.$emit("select-device", device);
         },
 
+        // 连接设备
+        connectToDevice(deviceId) {
+            console.log("DeviceList: 尝试连接设备", deviceId);
+            this.$emit("connect-device", deviceId);
+        },
+
         // 根据设备类型获取图标
         getDeviceIcon(deviceType) {
             switch (deviceType) {
@@ -60,9 +66,9 @@ const DeviceList = {
               </div>
             </v-card-text>
             <v-card-actions>
-              <v-btn color="primary" block>
-                <v-icon class="mr-2">mdi-send</v-icon>
-                发送文件
+              <v-btn color="primary" block @click="connectToDevice(device.device_id)">
+                <v-icon class="mr-2">mdi-link</v-icon>
+                连接设备
               </v-btn>
             </v-card-actions>
           </v-card>

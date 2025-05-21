@@ -92,6 +92,7 @@ const HomeView = {
       <device-list 
         :devices="devices" 
         @select-device="connectToDevice"
+        @connect-device="connectToDevice"
       ></device-list>
       
       <!-- 上传区域 -->

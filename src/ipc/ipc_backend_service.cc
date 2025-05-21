@@ -6,7 +6,7 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <chrono>
-#include <core/network/client/send_session_manager.h>
+#include <core/network/client/http_client_service.h>
 #include <core/network/discovery/discovery_manager.h>
 #include <core/network/server/http_server.h>
 #include <core/security/certificate_manager.h>
@@ -90,7 +90,9 @@ void IpcBackendService::start(const std::string& stdin_pipe_name,
     http_server_ = std::make_unique<HttpServer>(io_context_, *ssl_context_);
 
     // 初始化发送会话管理器
-    send_session_manager_ = std::make_unique<SendSessionManager>(io_context_, *cert_manager_);
+    // send_session_manager_ = std::make_unique<SendSessionManager>(io_context_, *cert_manager_);
+
+    http_client_service_ = std::make_unique<HttpClientService>(io_context_, *cert_manager_);
 
     // 启动设备发现
     discovery_manager_->Start(settings_.port);
@@ -280,7 +282,9 @@ boost::asio::awaitable<void> IpcBackendService::handle_send_file(const nlohmann:
 
     // 发送文件
     try {
-        send_session_manager_->SendFiles(it->ip_address, it->port, file_paths);
+        // send_session_manager_->SendFiles(it->ip_address, it->port, file_paths);
+
+        http_client_service_->SendFiles(it->ip_address, it->port, file_paths);
 
         // 发送通知：已连接到设备
         Notification notification;
@@ -313,22 +317,8 @@ boost::asio::awaitable<void> IpcBackendService::handle_cancel_wait_for_confirmat
     std::string transfer_id = data["transfer_id"];
 
     try {
-        // 检查发送会话管理器是否已初始化
-        if (!send_session_manager_) {
-            spdlog::error("Send session manager not initialized");
-
-            // 发送错误通知
-            Notification notification;
-            notification.type = NotificationType::kError;
-            notification.data = nlohmann::json{
-                {{"error", "无法取消等待确认：发送会话管理器未初始化"},
-                 {"transfer_id", transfer_id}}};
-            IpcEventStream::Instance()->PostNotification(notification);
-            co_return;
-        }
-
         // 取消发送会话
-        send_session_manager_->CancelSend(transfer_id);
+        http_client_service_->CancelSend(transfer_id);
         spdlog::info("Successfully cancelled wait for confirmation: {}", transfer_id);
 
         // 发送成功通知
@@ -363,7 +353,7 @@ boost::asio::awaitable<void> IpcBackendService::handle_cancel_send(const nlohman
 
     // 取消发送
     try {
-        send_session_manager_->CancelSend(transfer_id);
+        http_client_service_->CancelSend(transfer_id);
         spdlog::info("Cancel send: {}", transfer_id);
     } catch (const std::exception& e) {
         spdlog::error("Failed to cancel send: {}", e.what());

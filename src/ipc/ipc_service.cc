@@ -17,6 +17,7 @@
 #include <unistd.h>
 #endif
 #include <ipc/ipc_event_stream.h>
+#include <mutex>
 
 namespace lansend {
 IpcService::IpcService(boost::asio::io_context& io_context,
@@ -118,17 +119,6 @@ void IpcService::start() {
 
     running_ = true;
 
-    // 启动读取消息的协程
-    boost::asio::co_spawn(io_context_, read_message_loop(), [](std::exception_ptr e) {
-        if (e) {
-            try {
-                std::rethrow_exception(e);
-            } catch (const std::exception& ex) {
-                spdlog::error("Pipe communication exception: {}", ex.what());
-            }
-        }
-    });
-
     spdlog::info("Pipe communication started");
     boost::asio::co_spawn(
         io_context_,
@@ -146,6 +136,27 @@ void IpcService::start() {
                                    }});
         },
         boost::asio::detached);
+
+    // 启动读取消息的协程
+    boost::asio::co_spawn(io_context_, read_message_loop(), [](std::exception_ptr e) {
+        if (e) {
+            try {
+                std::rethrow_exception(e);
+            } catch (const std::exception& ex) {
+                spdlog::error("Pipe communication exception: {}", ex.what());
+            }
+        }
+    });
+
+    // boost::asio::co_spawn(io_context_, read_event_stream_loop(), [](std::exception_ptr e) {
+    //     if (e) {
+    //         try {
+    //             std::rethrow_exception(e);
+    //         } catch (const std::exception& ex) {
+    //             spdlog::error("Pipe communication exception: {}", ex.what());
+    //         }
+    //     }
+    // });
 }
 
 void IpcService::register_handler(const std::string& message_type, MessageHandler handler) {
@@ -154,6 +165,9 @@ void IpcService::register_handler(const std::string& message_type, MessageHandle
 
 boost::asio::awaitable<void> IpcService::send_message(const std::string& type,
                                                       const nlohmann::json& data) {
+    // 使用互斥锁确保对管道的写入是同步的
+    std::unique_lock<std::mutex> lock(write_mutex_);
+
     try {
         // 准备消息
         nlohmann::json message = {{"type", type},
@@ -162,6 +176,8 @@ boost::asio::awaitable<void> IpcService::send_message(const std::string& type,
                                    std::chrono::system_clock::now().time_since_epoch().count()}};
 
         std::string message_str = message.dump();
+
+        spdlog::debug("Sending message: {}", message_str);
 
         // 写入消息长度（4字节）
         uint32_t length = static_cast<uint32_t>(message_str.size());
@@ -179,6 +195,8 @@ boost::asio::awaitable<void> IpcService::send_message(const std::string& type,
 
         // 确保输出刷新
         std::cout.flush();
+
+        spdlog::debug("Message sent successfully: {}", type);
     } catch (const std::exception& e) {
         spdlog::error("Failed to send message: {}", e.what());
     }
@@ -350,22 +368,51 @@ boost::asio::awaitable<void> IpcService::read_event_stream_loop() {
 
     while (running_) {
         try {
+            // 添加短暂延迟，避免CPU占用过高
+            auto executor = co_await boost::asio::this_coro::executor;
+            co_await boost::asio::steady_timer(executor, std::chrono::milliseconds(10))
+                .async_wait(boost::asio::use_awaitable);
+
             auto notification = event_stream->PollNotification();
             if (!notification) {
                 continue;
             }
-            std::string notification_type = nlohmann::json(notification->type).dump();
+
+            // 直接使用枚举类型对应的字符串，而不是序列化枚举值
+            std::string notification_type;
+            nlohmann::json j = notification->type;
+            j.get_to(notification_type);
+
             nlohmann::json data = notification->data;
 
             // 获取通知类型名称
             spdlog::debug("Processing notification: {}", notification_type);
 
-            // 向管道写入通知
-            co_await send_message(notification_type, data);
+            // 尝试发送通知
+            bool send_success = false;
+            try {
+                co_await send_message(notification_type, data);
+                send_success = true;
+            } catch (const std::exception& send_ex) {
+                spdlog::error("Error sending notification: {}", send_ex.what());
+                // 在catch块中不能使用co_await，所以只记录错误
+            }
 
+            // 如果发送失败，添加延迟
+            if (!send_success) {
+                auto executor = co_await boost::asio::this_coro::executor;
+                co_await boost::asio::steady_timer(executor, std::chrono::milliseconds(100))
+                    .async_wait(boost::asio::use_awaitable);
+            }
         } catch (const std::exception& e) {
             spdlog::error("Error reading event stream: {}", e.what());
+            // 在catch块外添加延迟
         }
+
+        // 每次循环后添加短暂延迟，无论是否出错
+        auto executor = co_await boost::asio::this_coro::executor;
+        co_await boost::asio::steady_timer(executor, std::chrono::milliseconds(100))
+            .async_wait(boost::asio::use_awaitable);
     }
     spdlog::info("Exiting read event stream loop");
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "../core/network/client/http_client_service.h"
 #include "../core/network/client/send_session_manager.h"
 #include "../core/network/discovery/discovery_manager.h"
 #include "../core/network/server/http_server.h"
@@ -65,8 +66,9 @@ private:
     std::unique_ptr<CertificateManager> cert_manager_;
     std::unique_ptr<boost::asio::ssl::context> ssl_context_;
     std::unique_ptr<lansend::HttpServer> http_server_;
-    std::unique_ptr<SendSessionManager> send_session_manager_;
+    // std::unique_ptr<SendSessionManager> send_session_manager_;
     std::unique_ptr<lansend::IpcService> ipc_service_;
+    std::unique_ptr<lansend::HttpClientService> http_client_service_;
 
     // 定时器
     boost::asio::steady_timer poll_timer_;
