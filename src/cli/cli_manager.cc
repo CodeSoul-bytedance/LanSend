@@ -21,6 +21,10 @@ void CliManager::process_command(const std::string& command) {
     auto args = parse_command(command);
     execute_command(args);
 }
+void CliManager::process_command(const std::string& command) {
+    auto args = parse_command(command);
+    execute_command(args);
+}
 
 void CliManager::start_interactive_mode() {
     terminal_->ClearScreen();
@@ -87,12 +91,20 @@ void CliManager::handle_send_file(const std::string& alias,
 //     try {
 //         auto transfers = http_client_service_.get_active_transfers();
 //         print_transfer_list(transfers);
+//         auto transfers = http_client_service_.get_active_transfers();
+//         print_transfer_list(transfers);
 //     } catch (const std::exception& e) {
+//         terminal_->print_error("Failed to show transfers: " + std::string(e.what()));
 //         terminal_->print_error("Failed to show transfers: " + std::string(e.what()));
 //     }
 // }
 
 // void CliManager::handle_cancel_transfer(uint64_t transfer_id) {
+//     try {
+//         http_client_service_.cancel_transfer(transfer_id);
+//         terminal_->print_info("success cancel transfer，transfer ID: " + std::to_string(transfer_id));
+//     } catch (const std::exception& e) {
+//         terminal_->print_error("fail cancel transfer: " + std::string(e.what()));
 //     try {
 //         http_client_service_.cancel_transfer(transfer_id);
 //         terminal_->print_info("success cancel transfer，transfer ID: " + std::to_string(transfer_id));
