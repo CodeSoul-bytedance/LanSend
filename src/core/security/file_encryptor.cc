@@ -182,6 +182,7 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptData(
 std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptKey(
     const std::vector<std::uint8_t>& key, const std::string& public_key_pem) {
 
+    BIO* bio = BIO_new_mem_buf(public_key_pem.data(), -1);
     if (!bio) {
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
@@ -242,7 +243,7 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::DecryptKey(
     }
 
 
-std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptFile(
+std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptFileA(
     const std::string& input_file,
     const std::string& output_file,
     const std::vector<std::uint8_t>& key,
@@ -320,7 +321,7 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptFile(
     }
 
 
-bool FileEncryptor::DecryptFile(const std::string& input_file,
+bool FileEncryptor::DecryptFileA(const std::string& input_file,
                                 const std::string& output_file,
                                 const std::vector<std::uint8_t>& key,
                                 const std::vector<std::uint8_t>& iv,
