@@ -109,7 +109,7 @@ public:
      * @param iv 初始化向量
      * @return 认证标签
      */
-    static std::expected<std::vector<std::uint8_t>, ErrorType> EncryptFile(
+    static std::expected<std::vector<std::uint8_t>, ErrorType> EncryptFileA(
         const std::string& input_file,
         const std::string& output_file,
         const std::vector<std::uint8_t>& key,
@@ -124,7 +124,7 @@ public:
      * @param tag 认证标签
      * @return 解密是否成功
      */
-    static bool DecryptFile(const std::string& input_file,
+    static bool DecryptFileA(const std::string& input_file,
                             const std::string& output_file,
                             const std::vector<std::uint8_t>& key,
                             const std::vector<std::uint8_t>& iv,

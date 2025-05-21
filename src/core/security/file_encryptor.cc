@@ -1,9 +1,10 @@
 
 #include "file_encryptor.h"
-#include <cstring>
+#include <string>
 #include <fstream>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
+
 
 namespace lansend {
 
@@ -185,7 +186,7 @@ std::expected<std::vector<std::uint8_t>, ErrorType> FileEncryptor::EncryptKey(
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
     }
 
-    RSA* rsa = PEM_read_bio_RSA_PUBKEY(bio, nullptr, nullptr, nullptr);
+    RSA* rsa = PEM_read_bio_RSAPublicKey(bio, nullptr, nullptr, nullptr);
     BIO_free(bio);
     if (!rsa) {
         return std::unexpected(ERR_error_string(ERR_get_error(), nullptr));
