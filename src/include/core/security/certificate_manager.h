@@ -4,8 +4,8 @@
 #include <core/model/security_context.h>
 #include <filesystem>
 #include <string>
-#include <unordered_set>
 
+#define CERTIFICATE_MANAGER_ALLOW_UNREGISTERED 1
 namespace lansend::core {
 
 class CertificateManager {
@@ -16,32 +16,33 @@ public:
 
     static std::string CalculateCertificateHash(const std::string& certificatePem);
 
-    bool VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx);
+    bool VerifyCertificate(bool preverified,
+                           boost::asio::ssl::verify_context& ctx,
+                           const std::string& ip,
+                           uint16_t port);
 
-    void TrustFingerprint(const std::string& fingerprint);
+    void RegisterDeviceFingerprint(const std::string& ip,
+                                   uint16_t port,
+                                   const std::string& fingerprint);
+    void RemoveDeviceFingerprint(const std::string& ip, uint16_t port);
+    std::optional<std::string> GetDeviceFingerprint(const std::string& ip, uint16_t port) const;
 
-    bool IsFingerprintTrusted(const std::string& fingerprint);
-
-    bool TrustCertificate(const std::string& certificatePem);
+    bool IsUnregisteredAllowed() const { return unregistered_allowed_; }
+    void SetUnregisteredAllowed(bool allow) { unregistered_allowed_ = allow; }
 
 private:
     bool initSecurityContext();
-
     bool generateSelfSignedCertificate();
-
     bool saveSecurityContext();
-
     bool loadSecurityContext();
 
-    void loadTrustedFingerprints();
-
-    void saveTrustedFingerprints();
+    std::string makeDeviceKey(const std::string& ip, uint16_t port) const;
 
     SecurityContext security_context_;
     std::filesystem::path certificate_dir_;
-    std::filesystem::path trusted_fingerprints_path_;
+    bool unregistered_allowed_ = false;
 
-    std::unordered_set<std::string> trusted_fingerprints_;
+    std::unordered_map<std::string, std::string> device_fingerprints_;
 
     static constexpr int kCertValidityDays = 3650;
 };

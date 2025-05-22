@@ -8,7 +8,6 @@
 #include <sstream>
 
 namespace fs = std::filesystem;
-namespace ssl = boost::asio::ssl;
 using json = nlohmann::json;
 
 namespace lansend::core {
@@ -21,9 +20,6 @@ CertificateManager::CertificateManager(const fs::path& certDir)
 
     OpenSSLProvider::InitOpenSSL();
     initSecurityContext();
-
-    trusted_fingerprints_path_ = certificate_dir_ / "trusted_fingerprints.json";
-    loadTrustedFingerprints();
 }
 
 bool CertificateManager::initSecurityContext() {
@@ -67,7 +63,10 @@ std::string CertificateManager::CalculateCertificateHash(const std::string& cert
     return ss.str();
 }
 
-bool CertificateManager::VerifyCertificate(bool preverified, ssl::verify_context& ctx) {
+bool CertificateManager::VerifyCertificate(bool preverified,
+                                           boost::asio::ssl::verify_context& ctx,
+                                           const std::string& ip,
+                                           uint16_t port) {
     // Get the certificate being verified
     X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
     if (!cert) {
@@ -84,48 +83,75 @@ bool CertificateManager::VerifyCertificate(bool preverified, ssl::verify_context
     std::string certPem(certBuf, certLen);
 
     // Calculate fingerprint
-    std::string actualFingerprint = CalculateCertificateHash(certPem);
-
+    std::string actual_fingerprint = CalculateCertificateHash(certPem);
     BIO_free(certBio);
 
-    // Check if the fingerprint is in our trusted set
-    if (trusted_fingerprints_.find(actualFingerprint) != trusted_fingerprints_.end()) {
-        // Known fingerprint, connection is trusted
-        spdlog::info("Certificate fingerprint verified successfully: {}", actualFingerprint);
+    // If the fingerprint is in our trusted set, allow the connection
+    if (auto expected_fingerprint = GetDeviceFingerprint(ip, port); expected_fingerprint) {
+        if (*expected_fingerprint == actual_fingerprint) {
+            spdlog::info("Certificate fingerprint verified successfully: {}...",
+                         actual_fingerprint.substr(0, 8));
+            return true;
+        } else {
+            spdlog::error("Certificate fingerprint mismatch for {}:{}!", ip, port);
+            spdlog::error("Expected: {}...", expected_fingerprint->substr(0, 8));
+            spdlog::error("Actual: {}...", actual_fingerprint.substr(0, 8));
+            spdlog::error("Possible man-in-the-middle attack detected!");
+            return false;
+        }
+    }
+
+    // If allowed unregistered devices, log a warning
+    if (unregistered_allowed_) {
+        spdlog::warn("Unregistered device {}:{} connected, fingerprint: {}...",
+                     ip,
+                     port,
+                     actual_fingerprint.substr(0, 8));
         return true;
+    }
+    spdlog::error("No expected fingerprint for {}:{}, rejecting connection", ip, port);
+    spdlog::error("Certificate fingerprint: {}...", actual_fingerprint.substr(0, 8));
+    return true;
+}
+
+void CertificateManager::RegisterDeviceFingerprint(const std::string& ip,
+                                                   uint16_t port,
+                                                   const std::string& fingerprint) {
+    std::string key = makeDeviceKey(ip, port);
+
+    // 如果已存在且不同，记录警告
+    auto it = device_fingerprints_.find(key);
+    if (it != device_fingerprints_.end() && it->second != fingerprint) {
+        spdlog::warn("Device {}:{} fingerprint changed from {} to {}!",
+                     ip,
+                     port,
+                     it->second.substr(0, 8),
+                     fingerprint.substr(0, 8));
+    }
+
+    device_fingerprints_[key] = fingerprint;
+    spdlog::info("Registered fingerprint for {}:{}: {}...", ip, port, fingerprint.substr(0, 8));
+}
+
+void CertificateManager::RemoveDeviceFingerprint(const std::string& ip, uint16_t port) {
+    std::string key = makeDeviceKey(ip, port);
+    auto it = device_fingerprints_.find(key);
+    if (it != device_fingerprints_.end()) {
+        device_fingerprints_.erase(it);
+        spdlog::info("Removed fingerprint for {}:{}", ip, port);
     } else {
-        // First connection with this fingerprint, prompt user to trust it
-        spdlog::warn("New certificate fingerprint detected: {}", actualFingerprint);
-
-        // In a more official application, this might show a prompt to the user
-        // For now, we'll auto-trust on first encounter
-        trusted_fingerprints_.insert(actualFingerprint);
-        saveTrustedFingerprints();
-
-        spdlog::info("Automatically trusted new fingerprint: {}", actualFingerprint);
-        return true;
+        spdlog::warn("No fingerprint found for {}:{}", ip, port);
     }
 }
 
-void CertificateManager::TrustFingerprint(const std::string& fingerprint) {
-    trusted_fingerprints_.insert(fingerprint);
-    saveTrustedFingerprints();
-    spdlog::info("Added fingerprint to trusted list: {}", fingerprint);
-}
-
-bool CertificateManager::IsFingerprintTrusted(const std::string& fingerprint) {
-    return trusted_fingerprints_.find(fingerprint) != trusted_fingerprints_.end();
-}
-
-bool CertificateManager::TrustCertificate(const std::string& certificatePem) {
-    try {
-        std::string fingerprint = CalculateCertificateHash(certificatePem);
-        TrustFingerprint(fingerprint);
-        return true;
-    } catch (const std::exception& e) {
-        spdlog::error("Failed to add certificate to trust list: {}", e.what());
-        return false;
+std::optional<std::string> CertificateManager::GetDeviceFingerprint(const std::string& ip,
+                                                                    uint16_t port) const {
+    std::string key = makeDeviceKey(ip, port);
+    auto it = device_fingerprints_.find(key);
+    if (it != device_fingerprints_.end()) {
+        return it->second;
     }
+    return std::nullopt;
 }
 
 bool CertificateManager::generateSelfSignedCertificate() {
@@ -222,10 +248,6 @@ bool CertificateManager::generateSelfSignedCertificate() {
         security_context_.certificate_hash = CalculateCertificateHash(
             security_context_.certificate_pem);
 
-        // Add our own fingerprint to trusted list
-        trusted_fingerprints_.insert(security_context_.certificate_hash);
-        saveTrustedFingerprints();
-
         // Release all resources
         BIO_free(privateBio);
         BIO_free(publicBio);
@@ -301,10 +323,6 @@ bool CertificateManager::loadSecurityContext() {
         fingerprintStream << fingerprintFile.rdbuf();
         security_context_.certificate_hash = fingerprintStream.str();
 
-        // Make sure our own fingerprint is trusted
-        trusted_fingerprints_.insert(security_context_.certificate_hash);
-        saveTrustedFingerprints();
-
         return !security_context_.private_key_pem.empty()
                && !security_context_.public_key_pem.empty()
                && !security_context_.certificate_pem.empty()
@@ -315,43 +333,8 @@ bool CertificateManager::loadSecurityContext() {
     }
 }
 
-void CertificateManager::loadTrustedFingerprints() {
-    if (!fs::exists(trusted_fingerprints_path_)) {
-        spdlog::info("No trusted fingerprints file found, will create on first connection");
-        return;
-    }
-
-    try {
-        std::ifstream file(trusted_fingerprints_path_);
-        json j = json::parse(file);
-
-        if (j.is_array()) {
-            for (const auto& fingerprint : j) {
-                trusted_fingerprints_.insert(fingerprint.get<std::string>());
-            }
-        }
-
-        spdlog::info("Loaded {} trusted fingerprints", trusted_fingerprints_.size());
-    } catch (const std::exception& e) {
-        spdlog::error("Failed to load trusted fingerprints: {}", e.what());
-    }
-}
-
-void CertificateManager::saveTrustedFingerprints() {
-    try {
-        json j = json::array();
-        for (const auto& fingerprint : trusted_fingerprints_) {
-            j.push_back(fingerprint);
-        }
-
-        std::ofstream file(trusted_fingerprints_path_);
-        file << j.dump(2);
-        file.close();
-
-        spdlog::debug("Saved {} trusted fingerprints", trusted_fingerprints_.size());
-    } catch (const std::exception& e) {
-        spdlog::error("Failed to save trusted fingerprints: {}", e.what());
-    }
+std::string CertificateManager::makeDeviceKey(const std::string& ip, uint16_t port) const {
+    return std::format("{}:{}", ip, port);
 }
 
 } // namespace lansend::core

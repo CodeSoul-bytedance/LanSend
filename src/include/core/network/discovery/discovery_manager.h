@@ -23,7 +23,7 @@ struct DeviceEntry {
 
 class DiscoveryManager {
 public:
-    DiscoveryManager(boost::asio::io_context& ioc);
+    DiscoveryManager(boost::asio::io_context& ioc, CertificateManager& cert_manager);
     ~DiscoveryManager();
 
     void Start(uint16_t port);
@@ -42,6 +42,7 @@ public:
 private:
     std::mutex devices_mutex_;
     boost::asio::io_context& io_context_;
+    CertificateManager& cert_manager_;
     std::string device_id_;
 
     std::unordered_map<std::string, DeviceEntry> discovered_devices_;

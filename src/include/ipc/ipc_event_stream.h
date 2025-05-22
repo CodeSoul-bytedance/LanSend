@@ -22,11 +22,6 @@ public:
     bool PollCancelReceiveOperation();
     std::optional<Feedback> PollFeedback();
 
-    static IpcEventStream* Instance() {
-        static IpcEventStream instance;
-        return &instance;
-    }
-
 private:
     mutable std::mutex mutex_;
     // "common" and "send" operations that will be polling actively
