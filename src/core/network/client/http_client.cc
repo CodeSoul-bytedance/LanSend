@@ -7,10 +7,10 @@ namespace lansend::core {
 HttpsClient::HttpsClient(net::io_context& ioc, CertificateManager& cert_manager)
     : ioc_(ioc)
     , cert_manager_(cert_manager)
-    , ssl_ctx_(OpenSSLProvider::BuildClientContext(
-          [&](bool preverified, ssl::verify_context& ctx) -> bool {
-              return cert_manager.VerifyCertificate(preverified, ctx);
-          })) {}
+    , ssl_ctx_(OpenSSLProvider::BuildClientContext([this](bool preverified,
+                                                          ssl::verify_context& ctx) -> bool {
+        return cert_manager_.VerifyCertificate(preverified, ctx, current_host_, current_port_);
+    })) {}
 
 HttpsClient::~HttpsClient() {
     if (ssl_session_) {
@@ -24,6 +24,10 @@ net::awaitable<bool> HttpsClient::Connect(std::string_view host, unsigned short 
         if (connection_) {
             co_await Disconnect();
         }
+
+        // Set the SNI Hostname first, so that SSL handshake can be done
+        current_host_ = host;
+        current_port_ = port;
 
         connection_ = std::make_unique<beast::ssl_stream<beast::tcp_stream>>(beast::tcp_stream(ioc_),
                                                                              ssl_ctx_);
@@ -45,9 +49,6 @@ net::awaitable<bool> HttpsClient::Connect(std::string_view host, unsigned short 
             SSL_SESSION_free(ssl_session_);
         }
         ssl_session_ = SSL_get1_session(connection_->native_handle());
-
-        current_host_ = host;
-        current_port_ = port;
 
         spdlog::info("Connected to {}:{}", host, port);
         co_return true;

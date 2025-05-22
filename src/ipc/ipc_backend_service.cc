@@ -19,7 +19,7 @@ IpcBackendService::IpcBackendService(boost::asio::io_context& ioc, IpcEventStrea
     , cert_manager_(core::path::kCertificateDir)
     , http_client_service_(ioc, cert_manager_)
     , http_server_(ioc, cert_manager_)
-    , discovery_manager_(ioc)
+    , discovery_manager_(ioc, cert_manager_)
     , is_running_(true) {
     discovery_manager_.SetDeviceFoundCallback([this](const core::DeviceInfo& device) {
         event_stream_.PostFeedback(core::Feedback{

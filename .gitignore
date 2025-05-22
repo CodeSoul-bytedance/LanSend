@@ -42,7 +42,7 @@ CMakeUserPresets.json
 /out
 
 # IDE settings
-.vscode/settings.json
+.vscode
 .idea
 .vs
 

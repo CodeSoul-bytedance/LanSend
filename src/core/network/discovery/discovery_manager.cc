@@ -1,3 +1,4 @@
+#include "core/model/dto/broadcast_dto.h"
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/ip/address_v4.hpp>
@@ -16,8 +17,9 @@ using json = nlohmann::json;
 
 namespace lansend::core {
 
-DiscoveryManager::DiscoveryManager(io_context& ioc)
+DiscoveryManager::DiscoveryManager(io_context& ioc, CertificateManager& cert_manager)
     : io_context_(ioc)
+    , cert_manager_(cert_manager)
     , broadcast_socket_(ioc)
     , listen_socket_(ioc)
     , broadcast_timer_(ioc)
@@ -134,8 +136,11 @@ awaitable<void> DiscoveryManager::broadcaster() {
 
         ip::udp::endpoint broadcast_endpoint(ip::make_address(broadcast_address), broadcast_port);
 
-        json device_json = DeviceInfo::LocalDeviceInfo();
-        std::string data = device_json.dump();
+        // 将设备信息和指纹添加到广播数据包中
+        BroadcastDto broadcast_dto;
+        broadcast_dto.device_info = DeviceInfo::LocalDeviceInfo();
+        broadcast_dto.fingerprint = cert_manager_.security_context().certificate_hash;
+        std::string data = json(broadcast_dto).dump();
 
         while (broadcast_socket_.is_open()) {
             spdlog::info("start to broadcast device info every 3 seconds...");
@@ -165,6 +170,7 @@ std::string DiscoveryManager::generateDeviceId() {
 
     return std::to_string(timestamp) + "_" + std::to_string(randomNum);
 }
+
 awaitable<void> DiscoveryManager::listener() {
     try {
         constexpr size_t buffer_size = 1024;
@@ -179,14 +185,24 @@ awaitable<void> DiscoveryManager::listener() {
             std::string data(recv_buffer.data(), bytes_received);
 
             try {
-                json device_json = json::parse(data);
-                DeviceInfo device = device_json.get<DeviceInfo>();
+                json broadcast_json = json::parse(data);
+                BroadcastDto broadcast_dto;
+                nlohmann::from_json(broadcast_json, broadcast_dto);
+                DeviceInfo device = broadcast_dto.device_info;
+
                 // 判断是否是自己的设备，若是则跳过后续处理
                 if (device.device_id == device_id_) {
                     spdlog::info("Received message from self, skipping...");
                     // std::cout << "Received message from self, skipping..." << std::endl;
                     continue;
                 }
+
+                // 登记设备指纹
+                cert_manager_.RegisterDeviceFingerprint(sender_endpoint.address().to_string(),
+                                                        sender_endpoint.port(),
+                                                        broadcast_dto.fingerprint);
+
+                // 添加设备到已发现设备列表
                 AddDevice(device);
                 spdlog::info("Received device info from {}:{}",
                              sender_endpoint.address().to_string(),
@@ -210,16 +226,16 @@ awaitable<void> DiscoveryManager::cleanupDevices() {
             cleanup_timer_.expires_after(cleanup_interval);
 
             // std::lock_guard<std::mutex> lock(devices_mutex_);
-            auto now = std::chrono::system_clock::now();
-            for (auto it = discovered_devices_.begin(); it != discovered_devices_.end();) {
-                if (now - it->second.last_seen > timeout_duration) {
-                    std::string device_id = it->first;
-                    it = discovered_devices_.erase(it);
+            for (auto& [device_id, device_entry] : discovered_devices_) {
+                if (std::chrono::system_clock::now() - device_entry.last_seen > timeout_duration) {
                     if (device_lost_callback_) {
                         device_lost_callback_(device_id);
                     }
-                } else {
-                    ++it;
+
+                    cert_manager_.RemoveDeviceFingerprint(device_entry.device.ip_address,
+                                                          device_entry.device.port);
+
+                    discovered_devices_.erase(device_id);
                 }
             }
         }

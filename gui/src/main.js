@@ -164,9 +164,6 @@ function startBackendProcess() {
     if (isDev) {
         backendArgs.push("--dev");
     }
-    if (process.argv.includes("--second")) {
-        backendArgs.push("--second");
-    }
 
     const newBackendProcess = spawn(backendPath, backendArgs, {
         stdio: ["ignore", "pipe", "pipe"],
@@ -235,9 +232,7 @@ function startBackendProcess() {
             socket.on("close", () => {
                 console.log("STDIN pipe socket closed by backend.");
                 individualStdinConnected = false;
-                updatePipeConnectionStatus({
-                    message: "STDIN pipe socket closed by backend.",
-                });
+                updatePipeConnectionStatus({ message: "STDIN pipe socket closed by backend." });
                 backendStdinSocket = null;
             });
         },
@@ -272,9 +267,7 @@ function startBackendProcess() {
             socket.on("close", () => {
                 console.log("STDOUT pipe socket closed by backend.");
                 individualStdoutConnected = false;
-                updatePipeConnectionStatus({
-                    message: "STDOUT pipe socket closed by backend.",
-                });
+                updatePipeConnectionStatus({ message: "STDOUT pipe socket closed by backend." });
                 backendStdoutSocket = null;
             });
         },
@@ -325,10 +318,7 @@ function processReceivedDataInternal(newDataChunk) {
                     }
                 } else if (messageObj.feedback === "log_message") {
                     // console.log(`[Backend Log - ${messageObj.level}]: ${messageObj.payload}`);
-                } else if (
-                    messageObj.data.msgId &&
-                    messageQueue[messageObj.data.msgId]
-                ) {
+                } else if (messageObj.data.msgId && messageQueue[messageObj.data.msgId]) {
                     messageQueue[messageObj.data.msgId].resolve(messageObj);
                     delete messageQueue[messageObj.data.msgId];
                 } else {
