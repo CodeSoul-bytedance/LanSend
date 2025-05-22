@@ -158,6 +158,7 @@ void IpcBackendService::sendFiles(const operation::SendFiles& send_file) {
     if (send_file.file_paths.size() > 10) {
         spdlog::error("IPC Error: Too many files to send");
         return;
+    } else {
         std::vector<std::filesystem::path> file_paths;
         for (const auto& file_path : send_file.file_paths) {
             file_paths.emplace_back(file_path);

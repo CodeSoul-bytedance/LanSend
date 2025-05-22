@@ -63,14 +63,17 @@ void HttpClientService::ConnectDevice(std::string_view pin_code,
                                       unsigned short port,
                                       std::string_view device_id) {
     auto client_ptr = std::make_shared<HttpsClient>(ioc_, cert_manager_);
+    std::string ip_str(ip);
+    std::string pin_code_str(pin_code);
+    std::string device_id_str(device_id);
     net::co_spawn(
         ioc_,
-        [&]() -> net::awaitable<void> {
+        [this, client_ptr, pin_code_str, ip_str, port, device_id_str]() -> net::awaitable<void> {
             try {
-                co_await client_ptr->Connect(ip, port);
+                co_await client_ptr->Connect(ip_str, port);
                 if (client_ptr->IsConnected()) {
                     json data;
-                    data["pin_code"] = pin_code;
+                    data["pin_code"] = pin_code_str;
                     data["device_info"] = DeviceInfo::LocalDeviceInfo();
 
                     auto req = client_ptr->CreateRequest<http::string_body>(http::verb::post,
@@ -81,35 +84,37 @@ void HttpClientService::ConnectDevice(std::string_view pin_code,
 
                     auto res = co_await client_ptr->SendRequest(req);
                     if (res.result() == http::status::ok) {
-                        spdlog::info("connect to device {}:{} success", ip, port);
+                        spdlog::info("connect to device {}:{} success", ip_str, port);
                         feedback(Feedback{.type = FeedbackType::kConnectDeviceResult,
                                           .data = feedback::DeviceConnectResult{
-                                              .device_id = device_id.data(),
+                                              .device_id = device_id_str.data(),
                                           }});
                     } else {
-                        spdlog::error("connect to device {}:{} failed, pin-code mismatch", ip, port);
+                        spdlog::error("connect to device {}:{} failed, pin-code mismatch",
+                                      ip_str,
+                                      port);
                         feedback(Feedback{.type = FeedbackType::kConnectDeviceResult,
                                           .data = feedback::DeviceConnectResult{
-                                              .device_id = device_id.data(),
+                                              .device_id = device_id_str.data(),
                                               .success = false,
                                               .pin_code_error = true,
                                           }});
                     }
                     co_await client_ptr->Disconnect();
                 } else {
-                    spdlog::error("connect to device {}:{} failed, network error", ip, port);
+                    spdlog::error("connect to device {}:{} failed, network error", ip_str, port);
                     feedback(Feedback{.type = FeedbackType::kConnectDeviceResult,
                                       .data = feedback::DeviceConnectResult{
-                                          .device_id = device_id.data(),
+                                          .device_id = device_id_str.data(),
                                           .success = false,
                                           .network_error = true,
                                       }});
                 }
             } catch (const std::exception& e) {
-                spdlog::error("connect to device {}:{} failed: {}", ip, port, e.what());
+                spdlog::error("connect to device {}:{} failed: {}", ip_str, port, e.what());
                 feedback(Feedback{.type = FeedbackType::kConnectDeviceResult,
                                   .data = feedback::DeviceConnectResult{
-                                      .device_id = device_id.data(),
+                                      .device_id = device_id_str.data(),
                                       .success = false,
                                       .network_error = true,
                                   }});

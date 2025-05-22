@@ -164,6 +164,9 @@ function startBackendProcess() {
     if (isDev) {
         backendArgs.push("--dev");
     }
+    if (process.argv.includes("--second")) {
+        backendArgs.push("--second");
+    }
 
     const newBackendProcess = spawn(backendPath, backendArgs, {
         stdio: ["ignore", "pipe", "pipe"],
@@ -232,7 +235,9 @@ function startBackendProcess() {
             socket.on("close", () => {
                 console.log("STDIN pipe socket closed by backend.");
                 individualStdinConnected = false;
-                updatePipeConnectionStatus({ message: "STDIN pipe socket closed by backend." });
+                updatePipeConnectionStatus({
+                    message: "STDIN pipe socket closed by backend.",
+                });
                 backendStdinSocket = null;
             });
         },
@@ -267,7 +272,9 @@ function startBackendProcess() {
             socket.on("close", () => {
                 console.log("STDOUT pipe socket closed by backend.");
                 individualStdoutConnected = false;
-                updatePipeConnectionStatus({ message: "STDOUT pipe socket closed by backend." });
+                updatePipeConnectionStatus({
+                    message: "STDOUT pipe socket closed by backend.",
+                });
                 backendStdoutSocket = null;
             });
         },
@@ -318,7 +325,10 @@ function processReceivedDataInternal(newDataChunk) {
                     }
                 } else if (messageObj.feedback === "log_message") {
                     // console.log(`[Backend Log - ${messageObj.level}]: ${messageObj.payload}`);
-                } else if (messageObj.data.msgId && messageQueue[messageObj.data.msgId]) {
+                } else if (
+                    messageObj.data.msgId &&
+                    messageQueue[messageObj.data.msgId]
+                ) {
                     messageQueue[messageObj.data.msgId].resolve(messageObj);
                     delete messageQueue[messageObj.data.msgId];
                 } else {
@@ -431,22 +441,11 @@ async function sendToBackend(message) {
     buffer.write(messageData, 4);
 
     return new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-            delete messageQueue[id];
-            reject(
-                new Error(
-                    `Backend response timeout for message type ${message.type}`
-                )
-            );
-        }, 30000);
-
         messageQueue[id] = {
             resolve: (response) => {
-                clearTimeout(timeoutId);
                 resolve(response);
             },
             reject: (error) => {
-                clearTimeout(timeoutId);
                 reject(error);
             },
         };

@@ -31,64 +31,40 @@ const app = Vue.createApp({
         },
 
         // 发送文件到设备
-        async send_files_to_devices(devices, filePaths) {
-            console.log("app.js: send_files_to_devices");
-            console.log("devices (original):", devices); // 打印原始 devices
-            
-            // --- 详细检查 devices ---
-            if (devices && devices.length > 0) {
-                devices.forEach((device, index) => {
-                    console.log(`Device ${index}:`, device);
-                    // 尝试序列化单个设备对象，看是否会提前报错
-                    try {
-                        const clonedDevice = JSON.parse(JSON.stringify(device)); // 简单的克隆测试
-                        console.log(`Device ${index} (cloned via JSON):`, clonedDevice);
-                    } catch (e) {
-                        console.error(`Device ${index} cannot be JSON cloned:`, e);
-                        // 打印 device 的所有 key，并检查是否有函数
-                        for (const key in device) {
-                            if (Object.prototype.hasOwnProperty.call(device, key)) {
-                                console.log(`  Device ${index} key: ${key}, type: ${typeof device[key]}`);
-                                if (typeof device[key] === 'function') {
-                                    console.warn(`  Device ${index} has a function property: ${key}`);
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            // --- 详细检查结束 ---
+        async send_files_to_device(deviceId, filePaths) {
+            console.log("app.js: send_files_to_device");
+            console.log("device (original):", deviceId); // 打印原始 devices
 
             console.log("filePaths:", filePaths);
             try {
                 if (!filePaths || filePaths.length === 0) return;
 
                 // --- 尝试发送简化的设备信息 ---
-                const simplifiedDevices = devices.map(d => ({
-                    device_id: d.device_id, // 假设设备对象有 device_id
-                    name: d.name || d.alias, // 使用 d.alias 作为 d.name 的备用值
-                    alias: d.alias,
-                    ip: d.ip,
-                    port: d.port,
-                    device_model: d.device_model,
-                    device_type: d.device_type,
-                    connected: d.connected // 保留连接状态，后端可能需要
-                    // 只包含必要的、已知可序列化的属性
-                }));
-                console.log("Simplified devices for IPC:", simplifiedDevices);
-
-                const result = await PipeClient.methods.send_files_to_devices(
-                    simplifiedDevices, // <--- 使用简化的设备列表
-                    filePaths
-                );
-                // --- 结束尝试 ---
+                // const simplifiedDevices = devices.map(d => ({
+                //     device_id: d.device_id, // 假设设备对象有 device_id
+                //     name: d.name || d.alias, // 使用 d.alias 作为 d.name 的备用值
+                //     alias: d.alias,
+                //     ip: d.ip,
+                //     port: d.port,
+                //     device_model: d.device_model,
+                //     device_type: d.device_type,
+                //     connected: d.connected // 保留连接状态，后端可能需要
+                //     // 只包含必要的、已知可序列化的属性
+                // }));
+                // console.log("Simplified devices for IPC:", simplifiedDevices);
 
                 // const result = await PipeClient.methods.send_files_to_devices(
-                //     devices,
+                //     simplifiedDevices, // <--- 使用简化的设备列表
                 //     filePaths
                 // );
+                // // --- 结束尝试 ---
+
+                const result = await PipeClient.methods.send_files_to_device(
+                    deviceId,
+                    filePaths
+                );
             } catch (error) {
-                console.error("app.js - Error in send_files_to_devices:", error); // 打印详细错误
+                console.error("app.js - Error in send_files_to_device:", error); // 打印详细错误
                 this.showError(error.message || "发送文件请求失败");
             }
         },
@@ -201,9 +177,10 @@ const app = Vue.createApp({
                         message.data
                     ) {
                         this.updateDeviceList({
-                            alias: message.data.device_info.alias,
                             device_id: message.data.device_info.device_id,
-                            ip: message.data.device_info.ip,
+                            hostname: message.data.device_info.hostname,
+                            operating_system: message.data.device_info.operating_system,
+                            ip: message.data.device_info.ip_address,
                             port: message.data.device_info.port,
                         });
                         console.log("添加设备:", message.data);
@@ -233,10 +210,14 @@ const app = Vue.createApp({
                 case "ConnectDeviceResult":
                     // 更新设备连接状态
                     const connectedDevice = this.devices.find(
-                        (d) => d.device_id === message.device_id
+                        (d) => d.device_id === message.data.device_id
                     );
                     if (connectedDevice) {
-                        connectedDevice.connected = true;
+                        if(message.data.success){
+                            connectedDevice.connected = true;
+                        }else{
+                            connectedDevice.connected = false;
+                        }
                         this.updateDeviceList(connectedDevice);
                     }
                     break;
@@ -721,7 +702,7 @@ const app = Vue.createApp({
             :devices="devices"
             :transfers="transfers"
             :settings="settings"
-            @send_request="send_files_to_devices"
+            @send_files="send_files_to_device"
             @respond_to_receive_request="respond_to_receive"
             @connect_to_device="connect_to_device"
             @cancel_send="cancel_send">

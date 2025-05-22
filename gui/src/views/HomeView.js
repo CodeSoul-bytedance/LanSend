@@ -35,9 +35,13 @@ const HomeView = {
         handleSendFiles(filePaths) {
           console.log("HomeView: handleSendFiles")
             // 获取所有已连接的设备
-            const connectedDevices = this.devices.filter(device => device.connected);
+            const connectedDevices = this.devices
+              .filter(device => device.connected)
+              .map(device => device.device_id);
             if (connectedDevices.length > 0) {
-                this.$emit("send_request", connectedDevices, filePaths);
+                for(const device of connectedDevices) {
+                  this.$emit('send_files', device, filePaths);
+                }
             } else {
                 console.error("没有已连接的设备可用于发送文件");
                 // 可以添加用户通知逻辑

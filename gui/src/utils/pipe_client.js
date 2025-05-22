@@ -29,10 +29,10 @@ const PipeClient = {
         },
 
         // 发送文件到设备
-        send_files_to_devices(deviceIds, filePaths) {
-            return this.sendToBackend("SendFile", {
-                target_devices: deviceIds,
-                files: filePaths,
+        send_files_to_device(deviceId, filePaths) {
+            return this.sendToBackend("SendFiles", {
+                device_id: deviceId,
+                file_paths: filePaths,
             });
         },
 

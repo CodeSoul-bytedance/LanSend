@@ -19,6 +19,7 @@ int main(int argc, char* argv[]) {
         Logger::Level::info,
 #endif
         path::kLogDir.string()); // Convert std::filesystem::path to std::string
+
     InitConfig();
 
     OpenSSLProvider::InitOpenSSL();

@@ -113,7 +113,6 @@ const FileUploader = {
             this.$emit('send-error', '没有已连接的设备可用于发送文件');
             return;
           }
-          
           // 如果有已连接设备，则发出发送文件事件
           this.$emit('send_files', this.files.map(file => file.path));
         },

@@ -46,6 +46,7 @@ void InitConfig() {
         std::filesystem::create_directories(path::kConfigDir);
     }
     auto path = path::kConfigDir / "config.toml";
+
     if (!std::filesystem::exists(path)) {
         std::ofstream ofs(path);
         spdlog::info("Config file does not exist, creating...");
